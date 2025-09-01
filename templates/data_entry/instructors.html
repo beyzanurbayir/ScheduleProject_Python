@@ -1,0 +1,168 @@
+<!-- templates/data_entry/instructors.html -->
+{% extends "base.html" %}
+
+{% block title %}Instructors - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-chalkboard-teacher me-2"></i>Instructors
+        </h1>
+        <a href="{{ url_for('data_entry.create_instructor') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Add Instructor
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label for="department_id" class="form-label">Department</label>
+                    <select class="form-select" name="department_id" onchange="this.form.submit()">
+                        <option value="">All Departments</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.id }}" {{ 'selected' if dept.id == selected_dept }}>
+                                {{ dept.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="title" class="form-label">Title</label>
+                    <select class="form-select" name="title" onchange="this.form.submit()">
+                        <option value="">All Titles</option>
+                        {% for title in available_titles %}
+                            <option value="{{ title }}" {{ 'selected' if title == selected_title }}>
+                                {{ title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="is_active" class="form-label">Status</label>
+                    <select class="form-select" name="is_active" onchange="this.form.submit()">
+                        <option value="">All</option>
+                        <option value="true" {{ 'selected' if selected_active == 'true' }}>Active</option>
+                        <option value="false" {{ 'selected' if selected_active == 'false' }}>Inactive</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if instructors %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Name</th>
+                                <th>Department</th>
+                                <th>Contact</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for instructor in instructors %}
+                            <tr>
+                                <td>
+                                    <strong>{{ instructor.title }} {{ instructor.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ instructor.academic_degree or '' }}</small>
+                                </td>
+                                <td>{{ instructor.department_ref.name }}</td>
+                                <td>
+                                    <small>
+                                        <i class="fas fa-envelope text-muted me-1"></i>{{ instructor.email or 'N/A' }}
+                                        <br>
+                                        <i class="fas fa-phone text-muted me-1"></i>{{ instructor.phone or 'N/A' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% if instructor.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('data_entry.edit_instructor', instructor_id=instructor.id) }}" 
+                                           class="btn btn-outline-primary" title="Edit Basic Info">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        
+                                        <!-- ########################################## -->
+                                        <!-- ## İSTEDİĞİN YENİ BUTON BURADA ## -->
+                                        <!-- ########################################## -->
+                                        <a href="{{ url_for('data_entry.edit_instructor_availability', instructor_id=instructor.id) }}" 
+                                           class="btn btn-outline-secondary" title="Set Availability">
+                                            <i class="fas fa-clock"></i>
+                                        </a>
+
+                                        <a href="{{ url_for('data_entry.instructor_lessons', instructor_id=instructor.id) }}"
+                                           class="btn btn-outline-info" title="Manage Lessons">
+                                             <i class="fas fa-book"></i>
+                                        </a>
+                                        
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                onclick="confirmDelete('{{ instructor.name }}', '{{ url_for('data_entry.delete_instructor', instructor_id=instructor.id) }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-chalkboard-teacher fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No instructors found</h5>
+                    <p class="text-muted">Start by adding your first instructor</p>
+                    <a href="{{ url_for('data_entry.create_instructor') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add Instructor
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteName"></strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone and will remove all lesson assignments for this instructor.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(name, url) {
+    document.getElementById('deleteName').textContent = name;
+    document.getElementById('deleteForm').action = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

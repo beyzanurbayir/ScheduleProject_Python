@@ -739,3 +739,80 @@ def delete_instructor_lesson(assignment_id):
         flash(f'Error removing assignment: {str(e)}', 'error')
     
     return redirect(url_for('data_entry.instructor_lessons', instructor_id=instructor_id))
+
+
+
+
+
+@data_entry_bp.route('/departments/<int:dept_id>/edit', methods=['GET', 'POST'])
+def edit_department(dept_id):
+    department = Department.query.get_or_404(dept_id)
+    
+    if request.method == 'POST':
+        try:
+            department.name = request.form['name']
+            department.code = request.form.get('code', '').upper()
+            department.num_grades = int(request.form['num_grades'])
+            department.head_of_department = request.form.get('head_of_department')
+            department.building = request.form.get('building')
+            department.floor = int(request.form['floor']) if request.form.get('floor') else None
+            department.phone = request.form.get('phone')
+            department.email = request.form.get('email')
+            department.is_active = bool(request.form.get('is_active'))
+            
+            db.session.commit()
+            flash(f'Department "{department.name}" updated successfully!', 'success')
+            return redirect(url_for('data_entry.departments'))
+            
+        except (ValueError, IntegrityError) as e:
+            flash(f'Error updating department: {str(e)}', 'error')
+            
+    return render_template('data_entry/edit_department.html', department=department)
+
+@data_entry_bp.route('/departments/<int:dept_id>/delete', methods=['POST'])
+def delete_department(dept_id):
+    department = Department.query.get_or_404(dept_id)
+    try:
+        db.session.delete(department)
+        db.session.commit()
+        flash(f'Department "{department.name}" deleted successfully!', 'success')
+    except Exception as e:
+        flash(f'Error deleting department: {str(e)}. It might be in use by lessons or instructors.', 'error')
+        db.session.rollback()
+        
+    return redirect(url_for('data_entry.departments'))
+
+
+
+# routes/data_entry.py dosyasına eklenecek yeni fonksiyon
+@data_entry_bp.route('/classrooms/<int:classroom_id>/availability', methods=['GET', 'POST'])
+def edit_classroom_availability(classroom_id):
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    if request.method == 'POST':
+        try:
+            availability = []
+            for hour in range(10): # 10 saat dilimi (örn: 8:30'dan 18:30'a)
+                row = [bool(request.form.get(f'availability_{hour}_{day}')) for day in range(5)]
+                availability.append(row)
+            
+            classroom.availability = availability
+            db.session.commit()
+            
+            flash(f'Availability updated for classroom "{classroom.name}"!', 'success')
+            return redirect(url_for('data_entry.classrooms'))
+            
+        except Exception as e:
+            flash(f'Error updating availability: {str(e)}', 'error')
+    
+    # Eğer müsaitlik bilgisi yoksa, varsayılan olarak hepsi müsait (True) bir matris oluştur
+    if not classroom.availability:
+        classroom.availability = [[True for _ in range(5)] for _ in range(10)]
+    
+    time_slots = [f"{8 + i//2}:{30 if i%2 else '00'}" for i in range(10)] # Örnek saat dilimleri
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    
+    return render_template('data_entry/classroom_availability.html', 
+                         classroom=classroom, 
+                         time_slots=time_slots,
+                         days=days)

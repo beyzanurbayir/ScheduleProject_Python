@@ -3,7 +3,7 @@ from models.database import init_db, db, Department, Lesson, Instructor, Classro
 from routes.data_entry import data_entry_bp
 from routes.optimization import optimization_bp
 from routes.results import results_bp
-from sqlalchemy import func
+from sqlalchemy import func , distinct
 import os
 from datetime import datetime, timedelta
 
@@ -41,9 +41,7 @@ def create_app():
             
             # System health metrics
             departments_with_lessons = db.session.query(func.count(func.distinct(Lesson.department_id))).filter_by(is_active=True).scalar() or 0
-            instructors_assigned = db.session.query(func.count(func.distinct(InstructorLesson.instructor_id))).select_from(
-                db.session.query(Instructor).join('Instructor.lesson_assignments')
-            ).scalar() or 0
+            instructors_assigned = db.session.query(func.count(distinct(InstructorLesson.instructor_id))).scalar() or 0
             lab_classrooms = Classroom.query.filter_by(has_lab=True, is_active=True).count()
             
             # Calculate averages

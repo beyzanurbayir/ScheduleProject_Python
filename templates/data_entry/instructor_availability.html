@@ -1,0 +1,58 @@
+<!-- templates/data_entry/instructor_availability.html -->
+{% extends "base.html" %}
+
+{% block title %}Instructor Availability - {{ instructor.name }}{% endblock %}
+
+{% block content %}
+<div class="col-12 col-md-10 mx-auto">
+    <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h2">Set Availability</h1>
+            <h5 class="text-muted">{{ instructor.title }} {{ instructor.name }}</h5>
+        </div>
+        <a href="{{ url_for('data_entry.instructors') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Instructors
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                <p class="text-muted">Select the time slots when the instructor is available for teaching. Unchecked boxes mean the instructor is unavailable at that time.</p>
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Time</th>
+                                {% for day in days %}
+                                <th>{{ day }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hour in range(10) %}
+                            <tr>
+                                <td class="align-middle"><strong>{{ time_slots[hour] }}</strong></td>
+                                {% for day in range(5) %}
+                                <td>
+                                    <div class="form-check form-switch d-flex justify-content-center">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="availability_{{ hour }}_{{ day }}" 
+                                               name="availability_{{ hour }}_{{ day }}" 
+                                               value="true"
+                                               {% if instructor.availability and instructor.availability[hour][day] %}checked{% endif %}
+                                               style="transform: scale(1.5);">
+                                    </div>
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Save Availability</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

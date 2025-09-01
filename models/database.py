@@ -145,6 +145,7 @@ class Classroom(db.Model):
     next_maintenance_date = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    availability = db.Column(JSON, nullable=True)  # Saatlik müsaitlik matrisi (10x5)
     
     # İlişkiler
     availability_exceptions = db.relationship('ClassroomAvailability', backref='classroom_ref', lazy=True, cascade='all, delete-orphan')

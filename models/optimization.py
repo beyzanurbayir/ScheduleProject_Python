@@ -824,6 +824,8 @@ class AdvancedScheduleOptimizer:
                             }
         return None
     
+# models/optimization.py dosyasındaki _is_valid_placement fonksiyonunun TAMAMI
+
     def _is_valid_placement(self, schedule, lesson, instructor, classroom, start_hour, day):
         """Enhanced validity check for lesson placement"""
         end_hour = start_hour + lesson.total_hours
@@ -834,15 +836,16 @@ class AdvancedScheduleOptimizer:
         
         # Instructor checks
         if instructor:
-            # Availability check
+            # Instructor Availability check
             if instructor.availability:
-                for hour in range(start_hour, end_hour):
+                for hour_offset in range(lesson.total_hours):
+                    hour = start_hour + hour_offset
                     if (hour < len(instructor.availability) and 
                         day < len(instructor.availability[hour]) and 
                         not instructor.availability[hour][day]):
                         return False
             
-            # Daily hour limit check
+            # Instructor Daily hour limit check
             daily_hours = sum(
                 p['duration'] for p in schedule.values() 
                 if p.get('instructor') and p['instructor'].id == instructor.id and p['day'] == day
@@ -852,6 +855,20 @@ class AdvancedScheduleOptimizer:
         
         # Classroom checks
         if classroom:
+            # #############################################################
+            # ## YENİ DERSLİK KONTROLÜNÜN DOĞRU YERİ BURASI ##
+            # #############################################################
+            if classroom.availability:
+                # Dersin süresi boyunca her saat dilimini kontrol et
+                for hour_offset in range(lesson.total_hours):
+                    current_hour = start_hour + hour_offset
+                    if current_hour >= self.time_slots: continue
+
+                    # Dersliğin o gün ve o saatte müsait olup olmadığını kontrol et
+                    if not classroom.availability[current_hour][day]:
+                        return False # Derslik bu saatte müsait değil
+            # #############################################################
+
             # Capacity check
             if classroom.capacity < lesson.student_capacity:
                 return False
@@ -861,7 +878,7 @@ class AdvancedScheduleOptimizer:
                 return False
             if lesson.requires_computer and not classroom.has_computer:
                 return False
-            if lesson.requires_projector and not classroom.has_projector:
+            if lesson.requires_projector and not lesson.requires_projector: # Düzeltme: lesson.requires_projector olmalı
                 return False
         elif not lesson.is_online:
             return False  # Non-online lessons need classrooms
@@ -875,26 +892,20 @@ class AdvancedScheduleOptimizer:
             existing_start = existing_placement['start_hour']
             existing_end = existing_start + existing_placement['duration']
             
-            # Skip if different days
             if existing_day != day:
                 continue
             
-            # Check time overlap
             if not (end_hour <= existing_start or start_hour >= existing_end):
-                # Time conflict exists
-                
-                # Instructor conflict
                 if (instructor and existing_placement.get('instructor') and 
                     instructor.id == existing_placement['instructor'].id):
                     return False
                 
-                # Classroom conflict
                 if (classroom and existing_placement.get('classroom') and 
                     classroom.id == existing_placement['classroom'].id):
                     return False
         
         return True
-    
+
     def _calculate_population_diversity(self, population):
         """Calculate diversity of current population"""
         if len(population) < 2:

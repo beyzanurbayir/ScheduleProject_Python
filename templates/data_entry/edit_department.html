@@ -1,0 +1,75 @@
+<!-- templates/data_entry/edit_department.html -->
+{% extends "base.html" %}
+
+{% block title %}Edit Department - {{ department.name }}{% endblock %}
+
+{% block content %}
+<div class="col-12 col-md-8 mx-auto">
+    <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Edit Department</h1>
+        <a href="{{ url_for('data_entry.departments') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to List
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                <!-- Basic Info -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label for="name" class="form-label">Department Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ department.name }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="code" class="form-label">Code</label>
+                        <input type="text" class="form-control" id="code" name="code" value="{{ department.code }}">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="num_grades" class="form-label">Number of Grades</label>
+                        <input type="number" class="form-control" id="num_grades" name="num_grades" value="{{ department.num_grades }}" min="1" required>
+                    </div>
+                     <div class="col-md-8">
+                        <label for="head_of_department" class="form-label">Head of Department</label>
+                        <input type="text" class="form-control" id="head_of_department" name="head_of_department" value="{{ department.head_of_department or '' }}">
+                    </div>
+                </div>
+                
+                <hr>
+                <!-- Location & Contact -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="building" class="form-label">Building</label>
+                        <input type="text" class="form-control" id="building" name="building" value="{{ department.building or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="floor" class="form-label">Floor</label>
+                        <input type="number" class="form-control" id="floor" name="floor" value="{{ department.floor or '' }}">
+                    </div>
+                </div>
+                 <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" value="{{ department.phone or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ department.email or '' }}">
+                    </div>
+                </div>
+                
+                <hr>
+                <!-- Status -->
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="true" {% if department.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Active</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

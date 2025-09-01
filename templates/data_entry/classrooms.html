@@ -261,6 +261,16 @@
                                             <li><a class="dropdown-item" href="#" onclick="duplicateClassroom({{ classroom.id }})">
                                                 <i class="fas fa-copy me-2"></i>Duplicate
                                             </a></li>
+
+
+                                            
+                                            <!-- ########################################## -->
+                                            <!-- ## YENİ SATIRI BURAYA EKLE ## -->
+                                            <!-- ########################################## -->
+                                            <li><a class="dropdown-item" href="{{ url_for('data_entry.edit_classroom_availability', classroom_id=classroom.id) }}">
+                                                <i class="fas fa-clock me-2"></i>Set Availability
+                                            </a></li>
+                                            
                                             <li><a class="dropdown-item" href="#" onclick="scheduleMainternance({{ classroom.id }})">
                                                 <i class="fas fa-wrench me-2"></i>Schedule Maintenance
                                             </a></li>
@@ -270,6 +280,8 @@
                                                 <i class="fas fa-trash me-2"></i>Delete
                                             </a></li>
                                         </ul>
+
+                                        
                                     </div>
                                 </td>
                             </tr>
