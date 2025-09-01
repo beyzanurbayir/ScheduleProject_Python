@@ -659,39 +659,73 @@ def instructor_lessons(instructor_id):
     instructor = Instructor.query.get_or_404(instructor_id)
     
     if request.method == 'POST':
-        try:
-            lesson_id = int(request.form['lesson_id'])
-            competency = int(request.form.get('competency_level', 5))
-            preference = int(request.form.get('preference_level', 5))
-            experience = int(request.form.get('experience_years', 0))
-            can_coordinate = bool(request.form.get('can_coordinate'))
+        action = request.form.get('action')
+        
+        if action == 'auto_assign':
+            # Otomatik atama - aynı bölümdeki tüm dersleri ata
+            department_lessons = Lesson.query.filter_by(
+                department_id=instructor.department_id,
+                is_active=True
+            ).all()
             
-            # Check if assignment already exists
-            existing = InstructorLesson.query.filter_by(
-                instructor_id=instructor_id,
-                lesson_id=lesson_id
-            ).first()
-            
-            if existing:
-                flash('This lesson is already assigned to the instructor!', 'error')
-            else:
-                assignment = InstructorLesson(
+            assigned_count = 0
+            for lesson in department_lessons:
+                # Zaten atanmış mı kontrol et
+                existing = InstructorLesson.query.filter_by(
                     instructor_id=instructor_id,
-                    lesson_id=lesson_id,
-                    competency_level=competency,
-                    preference_level=preference,
-                    experience_years=experience,
-                    can_coordinate=can_coordinate,
-                    notes=request.form.get('notes')
-                )
-                db.session.add(assignment)
-                db.session.commit()
-                flash('Lesson assignment added successfully!', 'success')
+                    lesson_id=lesson.id
+                ).first()
+                
+                if not existing:
+                    assignment = InstructorLesson(
+                        instructor_id=instructor_id,
+                        lesson_id=lesson.id,
+                        competency_level=7,  # Varsayılan yetkinlik
+                        preference_level=5,  # Nötr tercih
+                        experience_years=1,  # Varsayılan tecrübe
+                        can_coordinate=False
+                    )
+                    db.session.add(assignment)
+                    assigned_count += 1
             
-        except (ValueError, IntegrityError) as e:
-            flash(f'Error adding lesson assignment: {str(e)}', 'error')
+            db.session.commit()
+            flash(f'{assigned_count} lessons automatically assigned to {instructor.name}!', 'success')
+            return redirect(url_for('data_entry.instructor_lessons', instructor_id=instructor_id))
+        
+        elif action == 'manual_assign':
+            # Manuel atama - mevcut kod
+            try:
+                lesson_id = int(request.form['lesson_id'])
+                competency = int(request.form.get('competency_level', 5))
+                preference = int(request.form.get('preference_level', 5))
+                experience = int(request.form.get('experience_years', 0))
+                can_coordinate = bool(request.form.get('can_coordinate'))
+                
+                existing = InstructorLesson.query.filter_by(
+                    instructor_id=instructor_id,
+                    lesson_id=lesson_id
+                ).first()
+                
+                if existing:
+                    flash('This lesson is already assigned to the instructor!', 'error')
+                else:
+                    assignment = InstructorLesson(
+                        instructor_id=instructor_id,
+                        lesson_id=lesson_id,
+                        competency_level=competency,
+                        preference_level=preference,
+                        experience_years=experience,
+                        can_coordinate=can_coordinate,
+                        notes=request.form.get('notes')
+                    )
+                    db.session.add(assignment)
+                    db.session.commit()
+                    flash('Lesson assignment added successfully!', 'success')
+                
+            except (ValueError, IntegrityError) as e:
+                flash(f'Error adding lesson assignment: {str(e)}', 'error')
     
-    # Get available lessons from same department
+    # GET için
     available_lessons = Lesson.query.filter_by(
         department_id=instructor.department_id, 
         is_active=True

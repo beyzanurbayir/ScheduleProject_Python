@@ -148,7 +148,7 @@ def configure():
                         )
                         
                         optimization_sessions[session_id]['status'] = 'completed'
-                        optimization_sessions[session_id]['result'] = result
+                        optimization_sessions[session_id]['result'] = {'id': result.id}
                         logger.info(f"Optimization completed successfully for session {session_id}")
                         
                     except Exception as e:
@@ -201,7 +201,16 @@ def api_progress(session_id=None):
     if session_id not in optimization_sessions:
         return jsonify({'error': 'Session not found'}), 404
     
-    return jsonify(optimization_sessions[session_id])
+    # Session verisini JSON serializable hale getir
+    session_data = optimization_sessions[session_id].copy()
+    
+    # Database nesnelerini serializable hale getir
+    if 'result' in session_data and hasattr(session_data['result'], 'to_dict'):
+        session_data['result'] = session_data['result'].to_dict()
+    elif 'result' in session_data and hasattr(session_data['result'], 'id'):
+        session_data['result'] = {'id': session_data['result'].id}
+    
+    return jsonify(session_data)
 
 @optimization_bp.route('/api/preview/<int:department_id>/<int:semester>')
 def api_preview(department_id, semester):

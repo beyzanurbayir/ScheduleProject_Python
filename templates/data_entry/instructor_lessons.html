@@ -1,0 +1,144 @@
+<!-- templates/data_entry/instructor_lessons.html -->
+{% extends "base.html" %}
+
+{% block title %}Manage Lessons - {{ instructor.name }}{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h2">Manage Lesson Assignments</h1>
+            <h5 class="text-muted">{{ instructor.title }} {{ instructor.name }}</h5>
+        </div>
+        <a href="{{ url_for('data_entry.instructors') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Instructors
+        </a>
+    </div>
+
+    <!-- ########################################## -->
+    <!-- ## İSTEDİĞİN OTOMATİK ATAMA KODU BURADA ## -->
+    <!-- ########################################## -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6>Quick Actions</h6>
+            <form method="POST" style="display: inline;">
+                <input type="hidden" name="action" value="auto_assign">
+                <button type="submit" class="btn btn-success" 
+                        onclick="return confirm('Assign all department lessons to this instructor?')">
+                    <i class="fas fa-magic me-2"></i>Auto-Assign All Department Lessons
+                </button>
+            </form>
+            <p class="small text-muted mt-1">This will assign all active lessons from {{ instructor.department_ref.name }} to {{ instructor.name }} with default settings.</p>
+        </div>
+    </div>
+    <!-- ## KOD BİTİŞİ ## -->
+
+
+    <div class="row">
+        <!-- Sol Taraf: Atanmış Dersler Listesi -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    Assigned Lessons ({{ instructor.lesson_assignments|length }})
+                </div>
+                <div class="card-body">
+                    {% if instructor.lesson_assignments %}
+                        <ul class="list-group">
+                            {% for assignment in instructor.lesson_assignments | sort(attribute='lesson.name') %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ assignment.lesson.name }}</strong> ({{ assignment.lesson.code }})
+                                        <br>
+                                        <small class="text-muted">
+                                            Competency: <b>{{ assignment.competency_level }}</b>/10 
+                                            | Preference: <b>{{ assignment.preference_level }}</b>/10
+                                            {% if assignment.can_coordinate %}
+                                                <span class="badge bg-primary ms-1">Coordinator</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- Düzenle Butonu -->
+                                        <a href="{{ url_for('data_entry.edit_instructor_lesson', assignment_id=assignment.id) }}" 
+                                           class="btn btn-outline-primary" title="Edit Assignment Details">
+                                            <i class="fas fa-pen"></i>
+                                        </a>
+                                        <!-- Sil Butonu (Form ile) -->
+                                        <form method="POST" action="{{ url_for('data_entry.delete_instructor_lesson', assignment_id=assignment.id) }}" style="display: inline;"
+                                              onsubmit="return confirm('Are you sure you want to remove this assignment?');">
+                                            <button type="submit" class="btn btn-outline-danger" title="Remove Assignment">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted text-center">No lessons assigned to this instructor yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Taraf: Yeni Ders Atama Formu -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    Assign New Lesson (Manual)
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="manual_assign">
+                        
+                        <div class="mb-3">
+                            <label for="lesson_id" class="form-label">Lesson to Assign</label>
+                            <select class="form-select" id="lesson_id" name="lesson_id" required>
+                                <option value="" disabled selected>Select a lesson...</option>
+                                {% for lesson in unassigned_lessons | sort(attribute='name') %}
+                                    <option value="{{ lesson.id }}">{{ lesson.code }} - {{ lesson.name }}</option>
+                                {% endfor %}
+                                {% if not unassigned_lessons %}
+                                    <option value="" disabled>All department lessons are assigned.</option>
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label for="competency_level" class="form-label">Competency (1-10)</label>
+                                <input type="range" class="form-range" id="competency_level" name="competency_level" min="1" max="10" value="7">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="preference_level" class="form-label">Preference (1-10)</label>
+                                <input type="range" class="form-range" id="preference_level" name="preference_level" min="1" max="10" value="5">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="experience_years" class="form-label">Years of Experience</label>
+                            <input type="number" class="form-control" id="experience_years" name="experience_years" min="0" value="0">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes (Optional)</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="can_coordinate" name="can_coordinate" value="true">
+                            <label class="form-check-label" for="can_coordinate">Can coordinate this lesson</label>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Assign Lesson</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal (Eğer instructurs.html'den kopyalanmadıysa - bu sayfada doğrudan silme formu var) -->
+{% endblock %}
