@@ -196,6 +196,7 @@ def create_app():
         
         return min(base_progress + bonus, 100)
     
+    
     @app.errorhandler(404)
     def not_found(error):
         return render_template('errors/404.html'), 404
@@ -242,6 +243,10 @@ def create_app():
             return "Just now"
     
     return app
+    
+
+
+
 
 if __name__ == '__main__':
     app = create_app()

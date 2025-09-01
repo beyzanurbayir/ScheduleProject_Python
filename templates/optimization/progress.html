@@ -1,7 +1,7 @@
 <!-- templates/optimization/progress.html -->
 {% extends "base.html" %}
 
-{% block title %}Optimization Progress - Schedule Optimizer{% endblock %}
+{% block title %}Optimization Progress{% endblock %}
 
 {% block content %}
 <div class="col-12">
@@ -28,7 +28,7 @@
 
                     <div id="statusText" class="text-muted mb-3">Initializing...</div>
 
-                    <!-- Real-time Stats -->
+                    <!-- Stats -->
                     <div class="row text-center">
                         <div class="col-md-3">
                             <div class="card bg-light">
@@ -42,7 +42,7 @@
                             <div class="card bg-light">
                                 <div class="card-body">
                                     <h4 id="fitnessStat" class="text-success">0</h4>
-                                    <small>Best Fitness</small>
+                                    <small>Fitness</small>
                                 </div>
                             </div>
                         </div>
@@ -58,7 +58,7 @@
                             <div class="card bg-light">
                                 <div class="card-body">
                                     <h4 id="utilizationStat" class="text-info">0%</h4>
-                                    <small>Room Usage</small>
+                                    <small>Utilization</small>
                                 </div>
                             </div>
                         </div>
@@ -70,27 +70,11 @@
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-chart-line me-2"></i>Algorithm Status</h5>
+                    <h5>Status</h5>
                 </div>
                 <div class="card-body">
-                    <div id="algorithmInfo">
-                        <p class="small text-muted">The genetic algorithm is evolving schedule solutions through natural selection principles.</p>
-                        <div class="mt-3">
-                            <div class="small">
-                                <strong>Current Phase:</strong> <span id="currentPhase">Initialization</span><br>
-                                <strong>Session ID:</strong> <code>{{ session_id[:8] }}...</code>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6><i class="fas fa-history me-2"></i>Progress Log</h6>
-                </div>
-                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
-                    <div id="progressLog" class="small">
+                    <p>Session ID: <code>{{ session_id[:8] }}...</code></p>
+                    <div id="progressLog">
                         <div class="text-muted">Starting optimization...</div>
                     </div>
                 </div>
@@ -106,6 +90,8 @@ let progressInterval;
 let sessionId = '{{ session_id }}';
 
 function updateProgress() {
+    if (!sessionId) return;
+    
     fetch(`/optimize/api/progress/${sessionId}`)
         .then(response => response.json())
         .then(data => {
@@ -116,42 +102,29 @@ function updateProgress() {
                 document.getElementById('progressBar').style.width = percentage + '%';
                 document.getElementById('progressText').textContent = percentage + '%';
                 document.getElementById('statusText').textContent = 
-                    `Generation ${progress.generation} of ${progress.total_generations} - Fitness: ${Math.round(progress.best_fitness)}`;
+                    `Generation ${progress.generation} of ${progress.total_generations}`;
                 
                 document.getElementById('generationStat').textContent = progress.generation;
-                document.getElementById('fitnessStat').textContent = Math.round(progress.best_fitness);
-                document.getElementById('conflictsStat').textContent = progress.conflicts;
-                
-                document.getElementById('currentPhase').textContent = 
-                    progress.generation === 0 ? 'Initialization' : 
-                    progress.generation < progress.total_generations * 0.3 ? 'Early Evolution' :
-                    progress.generation < progress.total_generations * 0.7 ? 'Mid Evolution' : 'Final Optimization';
-                
-                // Add to progress log
-                const logDiv = document.getElementById('progressLog');
-                if (progress.generation % 20 === 0) {
-                    const logEntry = document.createElement('div');
-                    logEntry.className = 'mb-1';
-                    logEntry.innerHTML = `<small>Gen ${progress.generation}: Fitness ${Math.round(progress.best_fitness)}, Conflicts ${progress.conflicts}</small>`;
-                    logDiv.appendChild(logEntry);
-                    logDiv.scrollTop = logDiv.scrollHeight;
-                }
+                document.getElementById('fitnessStat').textContent = Math.round(progress.best_fitness || 0);
+                document.getElementById('conflictsStat').textContent = progress.conflicts || 0;
                 
             } else if (data.status === 'completed') {
                 clearInterval(progressInterval);
                 document.getElementById('progressBar').style.width = '100%';
                 document.getElementById('progressText').textContent = '100%';
                 document.getElementById('statusText').innerHTML = 
-                    '<i class="fas fa-check-circle text-success me-2"></i>Optimization completed successfully!';
+                    '<i class="fas fa-check-circle text-success me-2"></i>Optimization completed!';
                 
                 setTimeout(() => {
-                    window.location.href = `/results/run/${data.result.id}`;
+                    if (data.result && data.result.id) {
+                        window.location.href = `/results/run/${data.result.id}`;
+                    }
                 }, 2000);
                 
             } else if (data.status === 'error') {
                 clearInterval(progressInterval);
                 document.getElementById('statusText').innerHTML = 
-                    '<i class="fas fa-exclamation-circle text-danger me-2"></i>Optimization failed: ' + data.error;
+                    '<i class="fas fa-exclamation-circle text-danger me-2"></i>Error: ' + (data.error || 'Unknown error');
             }
         })
         .catch(error => {
@@ -159,8 +132,10 @@ function updateProgress() {
         });
 }
 
-// Start progress monitoring
-progressInterval = setInterval(updateProgress, 1000);
-updateProgress(); // Initial call
+// Start monitoring
+if (sessionId) {
+    progressInterval = setInterval(updateProgress, 1000);
+    updateProgress();
+}
 </script>
 {% endblock %}

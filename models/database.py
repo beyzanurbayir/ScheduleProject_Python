@@ -283,6 +283,8 @@ class Instructor(db.Model):
         assignment = next((ia for ia in self.lesson_assignments if ia.lesson_id == lesson.id), None)
         return assignment is not None
     
+    
+    
     def to_dict(self):
         return {
             'id': self.id,
