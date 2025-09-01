@@ -1,0 +1,113 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Dashboard</h1>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card card-stat bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ departments_count|default(0) }}</h4>
+                            <p class="card-text">Departments</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-building fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-stat bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ lessons_count|default(0) }}</h4>
+                            <p class="card-text">Lessons</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-book fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-stat bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ instructors_count|default(0) }}</h4>
+                            <p class="card-text">Instructors</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-chalkboard-teacher fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-stat bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ classrooms_count|default(0) }}</h4>
+                            <p class="card-text">Classrooms</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-door-open fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-plus me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('data_entry.create_department') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-building me-2"></i>Add Department
+                        </a>
+                        <a href="{{ url_for('data_entry.create_lesson') }}" class="btn btn-outline-success">
+                            <i class="fas fa-book me-2"></i>Add Lesson
+                        </a>
+                        <a href="{{ url_for('data_entry.create_instructor') }}" class="btn btn-outline-info">
+                            <i class="fas fa-user-plus me-2"></i>Add Instructor
+                        </a>
+                        <a href="{{ url_for('optimization.configure') }}" class="btn btn-primary">
+                            <i class="fas fa-rocket me-2"></i>Start Optimization
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-line me-2"></i>Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Recent optimization runs and data changes will appear here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

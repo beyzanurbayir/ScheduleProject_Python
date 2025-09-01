@@ -1,0 +1,48 @@
+<!-- templates/data_entry/create_department.html -->
+{% extends "base.html" %}
+
+{% block title %}Add Department - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Add Department</h1>
+        <a href="{{ url_for('data_entry.departments') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Departments
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Department Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required 
+                                placeholder="e.g. Computer Engineering">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="num_grades" class="form-label">Number of Grades *</label>
+                            <select class="form-select" id="num_grades" name="num_grades" required>
+                                <option value="">Select...</option>
+                                <option value="3">3 Grades</option>
+                                <option value="4" selected>4 Grades</option>
+                                <option value="5">5 Grades</option>
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('data_entry.departments') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Department
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

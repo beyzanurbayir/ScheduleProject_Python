@@ -1,0 +1,91 @@
+<!-- templates/data_entry/create_classroom.html -->
+{% extends "base.html" %}
+
+{% block title %}Add Classroom - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Add Classroom</h1>
+        <a href="{{ url_for('data_entry.classrooms') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Classrooms
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Classroom Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required 
+                                       placeholder="e.g. A101, Lab-B205">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="capacity" class="form-label">Capacity *</label>
+                                <input type="number" class="form-control" id="capacity" name="capacity" required 
+                                       value="40" min="1" max="1000">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="building" class="form-label">Building</label>
+                                <input type="text" class="form-control" id="building" name="building" 
+                                       placeholder="e.g. Engineering Building">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="floor" class="form-label">Floor</label>
+                                <input type="number" class="form-control" id="floor" name="floor" 
+                                       placeholder="e.g. 2" min="-5" max="50">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="has_projector" name="has_projector" checked>
+                                    <label class="form-check-label" for="has_projector">
+                                        Has Projector
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="has_computer" name="has_computer">
+                                    <label class="form-check-label" for="has_computer">
+                                        Has Computers
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="has_lab" name="has_lab">
+                                    <label class="form-check-label" for="has_lab">
+                                        Laboratory
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Additional information about the classroom"></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('data_entry.classrooms') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Classroom
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+<!-- templates/data_entry/create_instructor.html -->
+{% extends "base.html" %}
+
+{% block title %}Add Instructor - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Add Instructor</h1>
+        <a href="{{ url_for('data_entry.instructors') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Instructors
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="name" class="form-label">Full Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required 
+                                       placeholder="e.g. Dr. John Smith">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="title" class="form-label">Title</label>
+                                <select class="form-select" id="title" name="title">
+                                    <option value="">Select Title</option>
+                                    <option value="Prof. Dr.">Prof. Dr.</option>
+                                    <option value="Doç. Dr.">Doç. Dr.</option>
+                                    <option value="Dr. Öğr. Üyesi">Dr. Öğr. Üyesi</option>
+                                    <option value="Öğr. Gör.">Öğr. Gör.</option>
+                                    <option value="Arş. Gör.">Arş. Gör.</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       placeholder="instructor@university.edu">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="department_id" class="form-label">Department *</label>
+                                <select class="form-select" id="department_id" name="department_id" required>
+                                    <option value="">Select Department</option>
+                                    {% for dept in departments %}
+                                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="max_daily_hours" class="form-label">Max Daily Hours</label>
+                                <input type="number" class="form-control" id="max_daily_hours" name="max_daily_hours" 
+                                       value="8" min="1" max="12">
+                                <div class="form-text">Maximum teaching hours per day</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="max_weekly_hours" class="form-label">Max Weekly Hours</label>
+                                <input type="number" class="form-control" id="max_weekly_hours" name="max_weekly_hours" 
+                                       value="30" min="1" max="50">
+                                <div class="form-text">Maximum teaching hours per week</div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('data_entry.instructors') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Instructor
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

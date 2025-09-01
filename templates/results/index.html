@@ -1,0 +1,81 @@
+<!-- templates/results/index.html -->
+{% extends "base.html" %}
+
+{% block title %}Results Dashboard - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Results Dashboard</h1>
+        <a href="{{ url_for('optimization.configure') }}" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>New Optimization
+        </a>
+    </div>
+
+    {% if recent_runs %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-trophy me-2"></i>Recent Successful Optimizations</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Department</th>
+                                <th>Semester</th>
+                                <th>Fitness Score</th>
+                                <th>Conflicts</th>
+                                <th>Runtime</th>
+                                <th>Completed</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for run in recent_runs %}
+                            <tr>
+                                <td><strong>{{ run.department.name }}</strong></td>
+                                <td>{{ run.semester }}</td>
+                                <td>
+                                    <span class="badge bg-success">{{ run.fitness_score|round }}</span>
+                                </td>
+                                <td>
+                                    {% if run.conflicts_count == 0 %}
+                                        <span class="badge bg-success">{{ run.conflicts_count }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">{{ run.conflicts_count }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ run.runtime_seconds|round(1) }}s</td>
+                                <td>{{ run.completed_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('results.view', run_id=run.id) }}" 
+                                           class="btn btn-primary">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="{{ url_for('results.export', run_id=run.id) }}" 
+                                           class="btn btn-outline-success">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-chart-line fa-4x text-muted mb-4"></i>
+            <h3 class="text-muted">No Results Yet</h3>
+            <p class="text-muted mb-4">Run your first optimization to see results here</p>
+            <a href="{{ url_for('optimization.configure') }}" class="btn btn-success btn-lg">
+                <i class="fas fa-rocket me-2"></i>Start First Optimization
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

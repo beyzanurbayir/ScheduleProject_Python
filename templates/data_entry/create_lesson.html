@@ -1,0 +1,111 @@
+<!-- templates/data_entry/create_lesson.html -->
+{% extends "base.html" %}
+
+{% block title %}Add Lesson - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Add Lesson</h1>
+        <a href="{{ url_for('data_entry.lessons') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Lessons
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Lesson Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required 
+                                       placeholder="e.g. Data Structures and Algorithms">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="code" class="form-label">Lesson Code *</label>
+                                <input type="text" class="form-control" id="code" name="code" required 
+                                       placeholder="e.g. CS201" style="text-transform: uppercase;">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="department_id" class="form-label">Department *</label>
+                                <select class="form-select" id="department_id" name="department_id" required>
+                                    <option value="">Select Department</option>
+                                    {% for dept in departments %}
+                                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="grade" class="form-label">Grade *</label>
+                                <select class="form-select" id="grade" name="grade" required>
+                                    <option value="">Select Grade</option>
+                                    <option value="1">1st Grade</option>
+                                    <option value="2">2nd Grade</option>
+                                    <option value="3">3rd Grade</option>
+                                    <option value="4">4th Grade</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="theory_hours" class="form-label">Theory Hours</label>
+                                <input type="number" class="form-control" id="theory_hours" name="theory_hours" 
+                                    value="0" min="0" max="10">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="practice_hours" class="form-label">Practice Hours</label>
+                                <input type="number" class="form-control" id="practice_hours" name="practice_hours" 
+                                    value="0" min="0" max="10">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="lab_hours" class="form-label">Lab Hours</label>
+                                <input type="number" class="form-control" id="lab_hours" name="lab_hours" 
+                                    value="0" min="0" max="10">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="student_capacity" class="form-label">Student Capacity *</label>
+                            <input type="number" class="form-control" id="student_capacity" name="student_capacity" 
+                                value="40" min="1" max="500" required>
+                            <div class="form-text">Number of students taking this lesson</div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="is_online" name="is_online">
+                                    <label class="form-check-label" for="is_online">
+                                        Online Lesson
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="requires_lab" name="requires_lab">
+                                    <label class="form-check-label" for="requires_lab">
+                                        Requires Laboratory
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('data_entry.lessons') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Lesson
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,265 @@
+<!-- templates/results/view.html -->
+{% extends "base.html" %}
+
+{% block title %}Optimization Results - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Optimization Results</h1>
+        <div>
+            <a href="{{ url_for('results.export', run_id=opt_run.id) }}" class="btn btn-outline-success me-2">
+                <i class="fas fa-download me-2"></i>Export
+            </a>
+            <a href="{{ url_for('optimization.configure') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>New Optimization
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-primary">{{ stats.fitness_score|round }}</h4>
+                    <small class="text-muted">Fitness Score</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-success">{{ stats.assigned_lessons }}</h4>
+                    <small class="text-muted">Assigned Lessons</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-danger">{{ stats.conflicts }}</h4>
+                    <small class="text-muted">Conflicts</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-info">{{ stats.online_lessons }}</h4>
+                    <small class="text-muted">Online Lessons</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-warning">{{ (stats.runtime|round(2)) }}s</h4>
+                    <small class="text-muted">Runtime</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-secondary">{{ opt_run.results.classroom_utilization|round }}%</h4>
+                    <small class="text-muted">Room Usage</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedule Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-calendar-alt me-2"></i>Generated Schedule</h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" onclick="toggleView('table')">
+                    <i class="fas fa-table"></i> Table View
+                </button>
+                <button class="btn btn-outline-secondary" onclick="toggleView('calendar')">
+                    <i class="fas fa-calendar"></i> Calendar View
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Table View -->
+            <div id="tableView">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Lesson Code</th>
+                                <th>Lesson Name</th>
+                                <th>Instructor</th>
+                                <th>Classroom</th>
+                                <th>Day</th>
+                                <th>Time</th>
+                                <th>Duration</th>
+                                <th>Department</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for schedule in schedules %}
+                            <tr>
+                                <td><code>{{ schedule.lesson_code }}</code></td>
+                                <td>{{ schedule.lesson_name }}</td>
+                                <td>
+                                    {% if schedule.instructor_name != 'Unassigned' %}
+                                        <i class="fas fa-user text-success me-1"></i>{{ schedule.instructor_name }}
+                                    {% else %}
+                                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>{{ schedule.instructor_name }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if schedule.classroom_name != 'Online' %}
+                                        <i class="fas fa-door-open text-primary me-1"></i>{{ schedule.classroom_name }}
+                                    {% else %}
+                                        <i class="fas fa-laptop text-info me-1"></i>{{ schedule.classroom_name }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ schedule.day_name }}</td>
+                                <td>{{ schedule.start_time }}</td>
+                                <td>{{ schedule.duration }}h</td>
+                                <td><small class="text-muted">{{ schedule.lesson_name.split(' ')[0] }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div id="calendarView" style="display: none;">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th width="10%">Time</th>
+                                <th width="18%">Monday</th>
+                                <th width="18%">Tuesday</th>
+                                <th width="18%">Wednesday</th>
+                                <th width="18%">Thursday</th>
+                                <th width="18%">Friday</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hour in range(10) %}
+                            <tr>
+                                <td class="fw-bold text-center">{{ "%02d:%02d"|format(8 + hour//2, 30 if hour%2 else 0) }}</td>
+                                {% for day in range(5) %}
+                                <td class="position-relative" style="height: 40px;">
+                                    {% for schedule in schedules %}
+                                        {% if schedule.day_of_week == day and schedule.start_hour <= hour and hour < schedule.start_hour + schedule.duration %}
+                                            {% if schedule.start_hour == hour %}
+                                                <div class="small bg-primary text-white p-1 rounded" 
+                                                     style="font-size: 10px; position: absolute; top: 2px; left: 2px; right: 2px;">
+                                                    <strong>{{ schedule.lesson_code }}</strong><br>
+                                                    {{ schedule.classroom_name }}<br>
+                                                    <small>{{ schedule.instructor_name[:15] }}...</small>
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optimization Details -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-info-circle me-2"></i>Optimization Details</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-6">Department:</dt>
+                        <dd class="col-sm-6">{{ opt_run.department.name }}</dd>
+                        
+                        <dt class="col-sm-6">Semester:</dt>
+                        <dd class="col-sm-6">{{ opt_run.semester }}</dd>
+                        
+                        <dt class="col-sm-6">Algorithm:</dt>
+                        <dd class="col-sm-6">Genetic Algorithm</dd>
+                        
+                        <dt class="col-sm-6">Population Size:</dt>
+                        <dd class="col-sm-6">{{ opt_run.parameters.population_size }}</dd>
+                        
+                        <dt class="col-sm-6">Generations:</dt>
+                        <dd class="col-sm-6">{{ opt_run.parameters.generations }}</dd>
+                        
+                        <dt class="col-sm-6">Completed:</dt>
+                        <dd class="col-sm-6">{{ opt_run.completed_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-chart-bar me-2"></i>Quality Metrics</h6>
+                </div>
+                <div class="card-body">
+                    {% if stats.conflicts == 0 %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>Perfect schedule with no conflicts!
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>{{ stats.conflicts }} conflict(s) found
+                        </div>
+                    {% endif %}
+                    
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ (stats.assigned_lessons / stats.total_lessons * 100)|round }}%">
+                        </div>
+                    </div>
+                    <small>{{ (stats.assigned_lessons / stats.total_lessons * 100)|round }}% lessons successfully assigned</small>
+                    
+                    <div class="progress mb-2 mt-3">
+                        <div class="progress-bar bg-info" 
+                             style="width: {{ opt_run.results.classroom_utilization|round }}%">
+                        </div>
+                    </div>
+                    <small>{{ opt_run.results.classroom_utilization|round }}% classroom utilization</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleView(view) {
+    const tableView = document.getElementById('tableView');
+    const calendarView = document.getElementById('calendarView');
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    if (view === 'table') {
+        tableView.style.display = 'block';
+        calendarView.style.display = 'none';
+        buttons[0].classList.add('active');
+    } else {
+        tableView.style.display = 'none';
+        calendarView.style.display = 'block';
+        buttons[1].classList.add('active');
+    }
+}
+
+// Set default active button
+document.querySelector('.btn-group .btn').classList.add('active');
+</script>
+{% endblock %}

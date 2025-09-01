@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Data Entry</h1>
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('data_entry.departments') }}" class="btn btn-primary">Departments</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <a href="{{ url_for('data_entry.lessons') }}" class="btn btn-success">Lessons</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

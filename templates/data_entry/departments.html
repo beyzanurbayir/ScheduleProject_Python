@@ -1,0 +1,100 @@
+<!-- templates/data_entry/departments.html -->
+{% extends "base.html" %}
+
+{% block title %}Departments - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Departments</h1>
+        <a href="{{ url_for('data_entry.create_department') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Add Department
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if departments %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Name</th>
+                                <th>Semesters</th>
+                                <th>Grades</th>
+                                <th>Enrollment</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dept in departments %}
+                            <tr>
+                                <td><strong>{{ dept.name }}</strong></td>
+                                <td>{{ dept.num_semesters }}</td>
+                                <td>{{ dept.num_grades }}</td>
+                                <td>{{ dept.enrollment|join(', ') }}</td>
+                                <td>{{ dept.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('data_entry.edit_department', dept_id=dept.id) }}" 
+                                           class="btn btn-outline-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                onclick="confirmDelete('{{ dept.name }}', '{{ url_for('data_entry.delete_department', dept_id=dept.id) }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-building fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No departments found</h5>
+                    <p class="text-muted">Start by adding your first department</p>
+                    <a href="{{ url_for('data_entry.create_department') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add Department
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteName"></strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone and will delete all related data.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(name, url) {
+    document.getElementById('deleteName').textContent = name;
+    document.getElementById('deleteForm').action = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}
