@@ -1,0 +1,530 @@
+<!-- templates/data_entry/classrooms.html -->
+{% extends "base.html" %}
+
+{% block title %}Classrooms - Schedule Optimizer{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-door-open me-2"></i>Classrooms
+            <small class="text-muted">({{ classrooms|length }} total)</small>
+        </h1>
+        <div class="btn-group">
+            <a href="{{ url_for('data_entry.create_classroom') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add Classroom
+            </a>
+            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-download me-2"></i>Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#">Export Excel</a></li>
+                <li><a class="dropdown-item" href="#">Export PDF</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-3">
+                    <label for="building" class="form-label">Building</label>
+                    <select class="form-select" name="building" id="building">
+                        <option value="">All Buildings</option>
+                        {% for building in buildings %}
+                            <option value="{{ building }}" {{ 'selected' if building == selected_building }}>
+                                {{ building }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="floor" class="form-label">Floor</label>
+                    <select class="form-select" name="floor" id="floor">
+                        <option value="">All Floors</option>
+                        {% for floor in floors %}
+                            <option value="{{ floor }}" {{ 'selected' if floor == selected_floor }}>
+                                Floor {{ floor }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="classroom_type" class="form-label">Type</label>
+                    <select class="form-select" name="classroom_type" id="classroom_type">
+                        <option value="">All Types</option>
+                        <option value="Standard" {{ 'selected' if selected_type == 'Standard' }}>Standard</option>
+                        <option value="Lab" {{ 'selected' if selected_type == 'Lab' }}>Laboratory</option>
+                        <option value="Amphitheater" {{ 'selected' if selected_type == 'Amphitheater' }}>Amphitheater</option>
+                        <option value="Conference" {{ 'selected' if selected_type == 'Conference' }}>Conference</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="min_capacity" class="form-label">Min Capacity</label>
+                    <input type="number" class="form-control" name="min_capacity" id="min_capacity" 
+                           value="{{ min_capacity or '' }}" placeholder="e.g. 50">
+                </div>
+                <div class="col-md-2">
+                    <label for="features" class="form-label">Features</label>
+                    <select class="form-select" name="features" id="features">
+                        <option value="">All Features</option>
+                        <option value="projector" {{ 'selected' if selected_feature == 'projector' }}>Has Projector</option>
+                        <option value="computer" {{ 'selected' if selected_feature == 'computer' }}>Has Computer</option>
+                        <option value="lab" {{ 'selected' if selected_feature == 'lab' }}>Has Lab Equipment</option>
+                        <option value="smartboard" {{ 'selected' if selected_feature == 'smartboard' }}>Has Smartboard</option>
+                        <option value="ac" {{ 'selected' if selected_feature == 'ac' }}>Air Conditioned</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <h5 class="text-primary mb-0">{{ total_classrooms }}</h5>
+                    <small class="text-muted">Total Rooms</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <h5 class="text-success mb-0">{{ active_classrooms }}</h5>
+                    <small class="text-muted">Active</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <h5 class="text-info mb-0">{{ total_capacity }}</h5>
+                    <small class="text-muted">Total Capacity</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <h5 class="text-warning mb-0">{{ avg_capacity|round }}</h5>
+                    <small class="text-muted">Avg Capacity</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <h5 class="text-danger mb-0">{{ lab_count }}</h5>
+                    <small class="text-muted">Labs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <h5 class="text-secondary mb-0">{{ buildings|length }}</h5>
+                    <small class="text-muted">Buildings</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if classrooms %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th>Building/Floor</th>
+                                <th>Type</th>
+                                <th>Capacity</th>
+                                <th>Features</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for classroom in classrooms %}
+                            <tr class="{{ 'table-secondary' if not classroom.is_active }}">
+                                <td>
+                                    <strong class="text-primary">{{ classroom.code }}</strong>
+                                </td>
+                                <td>
+                                    {{ classroom.name }}
+                                    {% if not classroom.is_bookable %}
+                                        <span class="badge bg-warning ms-1" title="Not bookable">
+                                            <i class="fas fa-lock fa-xs"></i>
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <i class="fas fa-building text-muted me-1"></i>{{ classroom.building }}
+                                        <br>
+                                        <i class="fas fa-layer-group text-muted me-1"></i>Floor {{ classroom.floor }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ classroom.classroom_type }}</span>
+                                </td>
+                                <td>
+                                    <div class="text-center">
+                                        <strong>{{ classroom.capacity }}</strong>
+                                        {% if classroom.exam_capacity %}
+                                            <br><small class="text-muted">{{ classroom.exam_capacity }} exam</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="feature-icons">
+                                        {% if classroom.has_projector %}
+                                            <span class="badge bg-info me-1" title="Projector">
+                                                <i class="fas fa-video"></i>
+                                            </span>
+                                        {% endif %}
+                                        {% if classroom.has_computer %}
+                                            <span class="badge bg-success me-1" title="Computer">
+                                                <i class="fas fa-desktop"></i>
+                                            </span>
+                                        {% endif %}
+                                        {% if classroom.has_lab %}
+                                            <span class="badge bg-danger me-1" title="Laboratory">
+                                                <i class="fas fa-flask"></i>
+                                            </span>
+                                        {% endif %}
+                                        {% if classroom.has_smartboard %}
+                                            <span class="badge bg-primary me-1" title="Smartboard">
+                                                <i class="fas fa-chalkboard"></i>
+                                            </span>
+                                        {% endif %}
+                                        {% if classroom.has_air_conditioning %}
+                                            <span class="badge bg-info me-1" title="Air Conditioning">
+                                                <i class="fas fa-snowflake"></i>
+                                            </span>
+                                        {% endif %}
+                                        {% if classroom.wifi_available %}
+                                            <span class="badge bg-success me-1" title="WiFi">
+                                                <i class="fas fa-wifi"></i>
+                                            </span>
+                                        {% endif %}
+                                        {% if not classroom.has_projector and not classroom.has_computer and not classroom.has_lab %}
+                                            <small class="text-muted">Basic</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if classroom.is_active %}
+                                        {% if classroom.is_bookable %}
+                                            <span class="badge bg-success">Available</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Restricted</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                    
+                                    {% if classroom.next_maintenance_date %}
+                                        <br><small class="text-warning">
+                                            <i class="fas fa-wrench fa-xs"></i> 
+                                            {{ classroom.next_maintenance_date.strftime('%m/%d') }}
+                                        </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-info" onclick="showDetails({{ classroom.id }})" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <a href="{{ url_for('data_entry.edit_classroom', classroom_id=classroom.id) }}" 
+                                           class="btn btn-outline-primary" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-success dropdown-toggle" 
+                                                data-bs-toggle="dropdown" title="More Actions">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="duplicateClassroom({{ classroom.id }})">
+                                                <i class="fas fa-copy me-2"></i>Duplicate
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="scheduleMainternance({{ classroom.id }})">
+                                                <i class="fas fa-wrench me-2"></i>Schedule Maintenance
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#" 
+                                                   onclick="confirmDelete('{{ classroom.name }}', '{{ url_for('data_entry.delete_classroom', classroom_id=classroom.id) }}')">
+                                                <i class="fas fa-trash me-2"></i>Delete
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if pagination %}
+                <nav aria-label="Classroom pagination" class="mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('data_entry.classrooms', page=pagination.prev_num) }}">Previous</a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in pagination.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != pagination.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('data_entry.classrooms', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">…</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pagination.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('data_entry.classrooms', page=pagination.next_num) }}">Next</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-door-open fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No classrooms found</h5>
+                    <p class="text-muted">Add classrooms to start building schedules</p>
+                    <a href="{{ url_for('data_entry.create_classroom') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add First Classroom
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Classroom Details Modal -->
+<div class="modal fade" id="classroomDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-door-open me-2"></i>Classroom Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="classroomDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="editFromModal()">Edit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteName"></strong>?</p>
+                <p class="text-danger"><small>This action cannot be undone and may affect existing schedules.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentClassroomId = null;
+
+function showDetails(classroomId) {
+    currentClassroomId = classroomId;
+    const modal = new bootstrap.Modal(document.getElementById('classroomDetailsModal'));
+    
+    // Show loading
+    document.getElementById('classroomDetailsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch classroom details
+    fetch(`/data/classrooms/${classroomId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            displayClassroomDetails(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('classroomDetailsContent').innerHTML = 
+                '<div class="alert alert-danger">Error loading classroom details.</div>';
+        });
+}
+
+function displayClassroomDetails(classroom) {
+    const features = [];
+    if (classroom.has_projector) features.push('<span class="badge bg-info me-1"><i class="fas fa-video me-1"></i>Projector</span>');
+    if (classroom.has_computer) features.push('<span class="badge bg-success me-1"><i class="fas fa-desktop me-1"></i>Computer</span>');
+    if (classroom.has_lab) features.push('<span class="badge bg-danger me-1"><i class="fas fa-flask me-1"></i>Lab</span>');
+    if (classroom.has_smartboard) features.push('<span class="badge bg-primary me-1"><i class="fas fa-chalkboard me-1"></i>Smartboard</span>');
+    if (classroom.has_air_conditioning) features.push('<span class="badge bg-info me-1"><i class="fas fa-snowflake me-1"></i>A/C</span>');
+    if (classroom.wifi_available) features.push('<span class="badge bg-success me-1"><i class="fas fa-wifi me-1"></i>WiFi</span>');
+    
+    const html = `
+        <div class="row">
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">Code:</dt>
+                    <dd class="col-sm-8"><strong class="text-primary">${classroom.code}</strong></dd>
+                    
+                    <dt class="col-sm-4">Name:</dt>
+                    <dd class="col-sm-8">${classroom.name}</dd>
+                    
+                    <dt class="col-sm-4">Type:</dt>
+                    <dd class="col-sm-8"><span class="badge bg-secondary">${classroom.classroom_type}</span></dd>
+                    
+                    <dt class="col-sm-4">Capacity:</dt>
+                    <dd class="col-sm-8">
+                        ${classroom.capacity} students
+                        ${classroom.exam_capacity ? `<br><small class="text-muted">${classroom.exam_capacity} during exams</small>` : ''}
+                    </dd>
+                    
+                    <dt class="col-sm-4">Location:</dt>
+                    <dd class="col-sm-8">
+                        ${classroom.building}, Floor ${classroom.floor}
+                        ${classroom.room_number ? `<br><small>Room: ${classroom.room_number}</small>` : ''}
+                    </dd>
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">Features:</dt>
+                    <dd class="col-sm-8">
+                        ${features.length > 0 ? features.join('') : '<small class="text-muted">Basic classroom</small>'}
+                    </dd>
+                    
+                    <dt class="col-sm-4">Status:</dt>
+                    <dd class="col-sm-8">
+                        ${classroom.is_active ? 
+                            (classroom.is_bookable ? '<span class="badge bg-success">Available</span>' : '<span class="badge bg-warning">Restricted</span>') :
+                            '<span class="badge bg-danger">Inactive</span>'
+                        }
+                    </dd>
+                    
+                    <dt class="col-sm-4">Maintenance:</dt>
+                    <dd class="col-sm-8">
+                        ${classroom.last_maintenance_date ? 
+                            `Last: ${new Date(classroom.last_maintenance_date).toLocaleDateString()}` : 
+                            '<small class="text-muted">No records</small>'
+                        }
+                        ${classroom.next_maintenance_date ? 
+                            `<br>Next: ${new Date(classroom.next_maintenance_date).toLocaleDateString()}` : 
+                            ''
+                        }
+                    </dd>
+                    
+                    <dt class="col-sm-4">Setup Time:</dt>
+                    <dd class="col-sm-8">${classroom.setup_time_minutes} minutes</dd>
+                    
+                    <dt class="col-sm-4">Cleaning Time:</dt>
+                    <dd class="col-sm-8">${classroom.cleaning_time_minutes} minutes</dd>
+                </dl>
+            </div>
+        </div>
+        
+        ${classroom.notes ? `
+            <div class="mt-3">
+                <strong>Notes:</strong>
+                <div class="border rounded p-2 bg-light">
+                    ${classroom.notes}
+                </div>
+            </div>
+        ` : ''}
+        
+        ${classroom.technical_equipment && classroom.technical_equipment.length > 0 ? `
+            <div class="mt-3">
+                <strong>Technical Equipment:</strong>
+                <ul class="list-unstyled mt-2">
+                    ${classroom.technical_equipment.map(eq => `<li><i class="fas fa-tools text-muted me-2"></i>${eq}</li>`).join('')}
+                </ul>
+            </div>
+        ` : ''}
+    `;
+    
+    document.getElementById('classroomDetailsContent').innerHTML = html;
+}
+
+function editFromModal() {
+    if (currentClassroomId) {
+        window.location.href = `/data/classrooms/${currentClassroomId}/edit`;
+    }
+}
+
+function confirmDelete(name, url) {
+    document.getElementById('deleteName').textContent = name;
+    document.getElementById('deleteForm').action = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function duplicateClassroom(classroomId) {
+    window.location.href = `/data/classrooms/${classroomId}/duplicate`;
+}
+
+function scheduleMainternance(classroomId) {
+    window.location.href = `/data/classrooms/${classroomId}/maintenance`;
+}
+
+// Auto-submit filters on change
+document.getElementById('filterForm').addEventListener('change', function() {
+    this.submit();
+});
+</script>
+{% endblock %}

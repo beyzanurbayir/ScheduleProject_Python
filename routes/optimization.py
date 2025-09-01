@@ -1,7 +1,7 @@
 # ===== routes/optimization.py =====
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from models.database import db, Department, OptimizationRun
-from models.optimization import ScheduleOptimizer, OptimizationConfig
+from models.optimization import AdvancedScheduleOptimizer, OptimizationConfig
 import threading
 import uuid
 import time
@@ -40,7 +40,7 @@ def configure():
             # Start optimization in background thread
             def run_optimization():
                 try:
-                    optimizer = ScheduleOptimizer(config)
+                    optimizer = AdvancedScheduleOptimizer(config)
                     optimization_sessions[session_id] = {'status': 'running', 'progress': {}}
                     
                     def progress_callback(progress_data):

@@ -6,78 +6,224 @@
 {% block content %}
 <div class="col-12">
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-        <h1 class="h2">Add Classroom</h1>
+        <h1 class="h2">
+            <i class="fas fa-plus me-2"></i>Add New Classroom
+        </h1>
         <a href="{{ url_for('data_entry.classrooms') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-2"></i>Back to Classrooms
         </a>
     </div>
 
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-10">
             <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-door-open me-2"></i>Classroom Information</h5>
+                </div>
                 <div class="card-body">
-                    <form method="POST">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
+                    <form method="POST" id="classroomForm">
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>Basic Information
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="code" class="form-label">Classroom Code *</label>
+                                <input type="text" class="form-control" id="code" name="code" required 
+                                       placeholder="e.g. A101, B205" style="text-transform: uppercase;">
+                                <div class="form-text">Unique identifier for the classroom</div>
+                            </div>
+                            <div class="col-md-4">
                                 <label for="name" class="form-label">Classroom Name *</label>
                                 <input type="text" class="form-control" id="name" name="name" required 
-                                       placeholder="e.g. A101, Lab-B205">
+                                       placeholder="e.g. Computer Lab 1">
                             </div>
-                            <div class="col-md-6">
-                                <label for="capacity" class="form-label">Capacity *</label>
-                                <input type="number" class="form-control" id="capacity" name="capacity" required 
-                                       value="40" min="1" max="1000">
+                            <div class="col-md-4">
+                                <label for="classroom_type" class="form-label">Type *</label>
+                                <select class="form-select" id="classroom_type" name="classroom_type" required>
+                                    <option value="Standard">Standard Classroom</option>
+                                    <option value="Lab">Laboratory</option>
+                                    <option value="Amphitheater">Amphitheater</option>
+                                    <option value="Conference">Conference Room</option>
+                                </select>
                             </div>
                         </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="building" class="form-label">Building</label>
-                                <input type="text" class="form-control" id="building" name="building" 
+
+                        <!-- Location Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Location
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="building" class="form-label">Building *</label>
+                                <input type="text" class="form-control" id="building" name="building" required
                                        placeholder="e.g. Engineering Building">
                             </div>
-                            <div class="col-md-6">
-                                <label for="floor" class="form-label">Floor</label>
-                                <input type="number" class="form-control" id="floor" name="floor" 
+                            <div class="col-md-4">
+                                <label for="floor" class="form-label">Floor *</label>
+                                <input type="number" class="form-control" id="floor" name="floor" required
                                        placeholder="e.g. 2" min="-5" max="50">
                             </div>
+                            <div class="col-md-4">
+                                <label for="room_number" class="form-label">Room Number</label>
+                                <input type="text" class="form-control" id="room_number" name="room_number" 
+                                       placeholder="e.g. 205A">
+                            </div>
                         </div>
 
-                        <div class="row mb-3">
+                        <!-- Capacity Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-users me-2"></i>Capacity & Usage
+                                </h6>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="capacity" class="form-label">Normal Capacity *</label>
+                                <input type="number" class="form-control" id="capacity" name="capacity" required 
+                                       value="40" min="1" max="1000">
+                                <div class="form-text">Maximum students for regular classes</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="exam_capacity" class="form-label">Exam Capacity</label>
+                                <input type="number" class="form-control" id="exam_capacity" name="exam_capacity" 
+                                       min="1" max="1000">
+                                <div class="form-text">Capacity during exams (usually lower)</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="setup_time_minutes" class="form-label">Setup Time (min)</label>
+                                <input type="number" class="form-control" id="setup_time_minutes" name="setup_time_minutes" 
+                                       value="5" min="0" max="60">
+                                <div class="form-text">Time needed to prepare room</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cleaning_time_minutes" class="form-label">Cleaning Time (min)</label>
+                                <input type="number" class="form-control" id="cleaning_time_minutes" name="cleaning_time_minutes" 
+                                       value="15" min="0" max="120">
+                                <div class="form-text">Time needed to clean after use</div>
+                            </div>
+                        </div>
+
+                        <!-- Equipment & Features -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-tools me-2"></i>Equipment & Features
+                                </h6>
+                            </div>
                             <div class="col-md-4">
-                                <div class="form-check">
+                                <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" id="has_projector" name="has_projector" checked>
                                     <label class="form-check-label" for="has_projector">
-                                        Has Projector
+                                        <i class="fas fa-video me-2"></i>Projector
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="has_smartboard" name="has_smartboard">
+                                    <label class="form-check-label" for="has_smartboard">
+                                        <i class="fas fa-chalkboard me-2"></i>Smartboard
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="has_microphone" name="has_microphone">
+                                    <label class="form-check-label" for="has_microphone">
+                                        <i class="fas fa-microphone me-2"></i>Microphone System
                                     </label>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="form-check">
+                                <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" id="has_computer" name="has_computer">
                                     <label class="form-check-label" for="has_computer">
-                                        Has Computers
+                                        <i class="fas fa-desktop me-2"></i>Computers
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="has_lab" name="has_lab">
+                                    <label class="form-check-label" for="has_lab">
+                                        <i class="fas fa-flask me-2"></i>Laboratory Equipment
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="wifi_available" name="wifi_available" checked>
+                                    <label class="form-check-label" for="wifi_available">
+                                        <i class="fas fa-wifi me-2"></i>WiFi Available
                                     </label>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="has_lab" name="has_lab">
-                                    <label class="form-check-label" for="has_lab">
-                                        Laboratory
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="has_air_conditioning" name="has_air_conditioning">
+                                    <label class="form-check-label" for="has_air_conditioning">
+                                        <i class="fas fa-snowflake me-2"></i>Air Conditioning
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="is_bookable" name="is_bookable" checked>
+                                    <label class="form-check-label" for="is_bookable">
+                                        <i class="fas fa-calendar-check me-2"></i>Available for Booking
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                                    <label class="form-check-label" for="is_active">
+                                        <i class="fas fa-check-circle me-2"></i>Active
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Notes</label>
-                            <textarea class="form-control" id="notes" name="notes" rows="3" 
-                                      placeholder="Additional information about the classroom"></textarea>
+                        <!-- Additional Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-clipboard me-2"></i>Additional Information
+                                </h6>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="technical_equipment" class="form-label">Technical Equipment</label>
+                                <textarea class="form-control" id="technical_equipment" name="technical_equipment" rows="3" 
+                                          placeholder="List special equipment (one per line)&#10;e.g. 3D Printer&#10;Oscilloscope&#10;CAD Workstations"></textarea>
+                                <div class="form-text">List any special technical equipment available</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                          placeholder="Additional notes about the classroom"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Department Priority -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-star me-2"></i>Department Priority (Optional)
+                                </h6>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="department_priority" class="form-label">Priority Departments</label>
+                                <select class="form-select" id="department_priority" name="department_priority" multiple>
+                                    {% for dept in departments %}
+                                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Select departments that have priority access to this classroom</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="usage_cost_per_hour" class="form-label">Usage Cost per Hour ($)</label>
+                                <input type="number" class="form-control" id="usage_cost_per_hour" name="usage_cost_per_hour" 
+                                       step="0.01" min="0">
+                                <div class="form-text">Cost for using this classroom (if applicable)</div>
+                            </div>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <a href="{{ url_for('data_entry.classrooms') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="reset" class="btn btn-outline-secondary">Reset</button>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-2"></i>Save Classroom
                             </button>
@@ -88,4 +234,54 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-generate classroom code based on building and floor
+document.getElementById('building').addEventListener('blur', generateCode);
+document.getElementById('floor').addEventListener('blur', generateCode);
+
+function generateCode() {
+    const building = document.getElementById('building').value;
+    const floor = document.getElementById('floor').value;
+    const codeField = document.getElementById('code');
+    
+    if (building && floor && !codeField.value) {
+        const buildingCode = building.charAt(0).toUpperCase();
+        const floorCode = floor.padStart(1, '0');
+        // This is just a suggestion, user can modify
+        codeField.value = buildingCode + floorCode + '01';
+        codeField.focus();
+        codeField.select();
+    }
+}
+
+// Auto-calculate exam capacity (typically 50% of normal capacity)
+document.getElementById('capacity').addEventListener('blur', function() {
+    const capacity = parseInt(this.value);
+    const examCapacityField = document.getElementById('exam_capacity');
+    
+    if (capacity && !examCapacityField.value) {
+        examCapacityField.value = Math.floor(capacity * 0.5);
+    }
+});
+
+// Convert technical equipment textarea to array on form submit
+document.getElementById('classroomForm').addEventListener('submit', function() {
+    const equipmentField = document.getElementById('technical_equipment');
+    if (equipmentField.value.trim()) {
+        const equipmentList = equipmentField.value.split('\n')
+            .map(item => item.trim())
+            .filter(item => item.length > 0);
+        equipmentField.value = JSON.stringify(equipmentList);
+    }
+});
+
+// Handle department priority selection
+document.getElementById('department_priority').addEventListener('change', function() {
+    const selected = Array.from(this.selectedOptions).map(option => parseInt(option.value));
+    this.setAttribute('data-selected', JSON.stringify(selected));
+});
+</script>
 {% endblock %}
