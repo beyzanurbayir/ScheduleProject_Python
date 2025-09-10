@@ -72,6 +72,7 @@ class Lesson(db.Model):
     is_elective = db.Column(db.Boolean, nullable=False, default=False)  # Seçmeli ders mi?
     prerequisite_ids = db.Column(JSON, nullable=True)  # Önkoşul ders ID'leri
     language = db.Column(db.String(20), nullable=False, default='Turkish')  # Ders dili
+    difficulty = db.Column(db.Integer, nullable=False, default=3) # 1-5 (Kolay-Zor)
     exam_type = db.Column(db.String(50), nullable=True)  # Final, Vize+Final, Proje vb.
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

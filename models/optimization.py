@@ -28,16 +28,21 @@ class OptimizationConfig:
     diversity_threshold: float = 0.1
     stagnation_limit: int = 20
     local_search_probability: float = 0.3
+
+    # Simulated Annealing for Local Search
+    initial_temperature: float = 100.0
+    cooling_rate: float = 0.95
     
     # Fitness weights - normalized to sum to 100
-    conflict_penalty: float = 35.0          # Hard constraints
-    room_utilization_weight: float = 20.0   # Efficient room usage
+    conflict_penalty: float = 40.0          # Hard constraints (Ağırlığı arttı)
+    room_utilization_weight: float = 15.0   # Efficient room usage (Ağırlığı azaldı)
     instructor_balance_weight: float = 15.0  # Workload distribution
-    preference_weight: float = 12.0         # Instructor preferences
-    time_distribution_weight: float = 10.0  # Daily/weekly distribution
-    student_satisfaction_weight: float = 8.0 # Student schedule quality
+    preference_weight: float = 10.0         # Instructor preferences (Ağırlığı azaldı)
+    time_distribution_weight: float = 5.0  # Daily/weekly distribution (Ağırlığı azaldı)
+    student_satisfaction_weight: float = 15.0 # Student schedule quality (AĞIRLIĞI ARTTI)
 
 class AdvancedScheduleOptimizer:
+    #GÜNCEELLENDİ
     def __init__(self, config: OptimizationConfig = None):
         self.config = config or OptimizationConfig()
         self.time_slots = 10  # 8:30-18:30 (30-min slots)
@@ -45,6 +50,7 @@ class AdvancedScheduleOptimizer:
         self.generation_stats = []
         self.best_fitness_history = []
         self.diversity_history = []
+        self.current_temperature = self.config.initial_temperature # YENİ SATIR
         
     def optimize_schedule(self, department_id: int, semester: int, session_id: str, 
                          progress_callback=None) -> OptimizationRun:
@@ -188,26 +194,31 @@ class AdvancedScheduleOptimizer:
             # Apply local search to promising individuals
             if random.random() < self.config.local_search_probability:
                 population = self._apply_local_search(population, lessons, instructors, classrooms)
-        
+
+            # Cool down the temperature for simulated annealing
+            self.current_temperature *= self.config.cooling_rate # YENİ SATIR
+
         self.generation_stats = generation_data
         return best_schedule, best_fitness, generation_data
     
+    #GÜNCELLENDİ
     def _create_diverse_population(self, lessons, instructors, classrooms):
         """Create initial population with diverse construction strategies"""
         population = []
         
         for i in range(self.config.population_size):
-            if i < self.config.population_size * 0.3:  # 30% - Priority-based construction
+            if i < self.config.population_size * 0.25:  # 25% - Graph Coloring Heuristic (YENİ)
+                schedule = self._create_graph_coloring_schedule(lessons, instructors, classrooms)
+            elif i < self.config.population_size * 0.5:  # 25% - Priority-based construction
                 schedule = self._create_priority_based_schedule(lessons, instructors, classrooms)
-            elif i < self.config.population_size * 0.6:  # 30% - Greedy construction
+            elif i < self.config.population_size * 0.75:  # 25% - Greedy construction
                 schedule = self._create_greedy_schedule(lessons, instructors, classrooms)
-            elif i < self.config.population_size * 0.8:  # 20% - Constraint-focused construction
-                schedule = self._create_constraint_focused_schedule(lessons, instructors, classrooms)
-            else:  # 20% - Random construction
+            else:  # 25% - Random construction
                 schedule = self._create_random_schedule(lessons, instructors, classrooms)
             
             population.append(schedule)
         
+        # Constraint-focused'ı kaldırdık çünkü Graph Coloring benzer bir amaca hizmet ediyor.
         return population
     
     def _create_priority_based_schedule(self, lessons, instructors, classrooms):
@@ -277,6 +288,79 @@ class AdvancedScheduleOptimizer:
         
         return schedule
     
+    # YENİ EKLENEN METOD
+
+    def _create_graph_coloring_schedule(self, lessons, instructors, classrooms):
+        """Creates a schedule using a greedy graph coloring approach to minimize initial conflicts."""
+        schedule = {}
+        
+        # 1. Create the conflict graph
+        # Key: lesson_id, Value: set of conflicting lesson_ids
+        conflict_graph = {lesson.id: set() for lesson in lessons}
+        # Group lessons by grade
+        lessons_by_grade = {}
+        for lesson in lessons:
+            if lesson.grade not in lessons_by_grade:
+                lessons_by_grade[lesson.grade] = []
+            lessons_by_grade[lesson.grade].append(lesson)
+
+        # Assume lessons for the same grade conflict with each other
+        for grade, grade_lessons in lessons_by_grade.items():
+            for i in range(len(grade_lessons)):
+                for j in range(i + 1, len(grade_lessons)):
+                    l1_id = grade_lessons[i].id
+                    l2_id = grade_lessons[j].id
+                    conflict_graph[l1_id].add(l2_id)
+                    conflict_graph[l2_id].add(l1_id)
+
+        # 2. Sort nodes (lessons) by degree (number of conflicts) in descending order
+        sorted_lessons = sorted(lessons, key=lambda l: len(conflict_graph[l.id]), reverse=True)
+        
+        # 3. Color the graph (assign time slots)
+        # Key: lesson_id, Value: color (time_slot_index)
+        lesson_colors = {}
+        total_slots = self.days * self.time_slots
+
+        for lesson in sorted_lessons:
+            # Find the first available color (time slot)
+            used_colors = {lesson_colors[neighbor_id] for neighbor_id in conflict_graph[lesson.id] if neighbor_id in lesson_colors}
+            
+            for color in range(total_slots):
+                if color not in used_colors:
+                    lesson_colors[lesson.id] = color
+                    break
+            else:
+                # If no color is available (should be rare with enough slots), assign a random one
+                lesson_colors[lesson.id] = random.randint(0, total_slots - 1)
+
+        # 4. Build the final schedule from the colored graph
+        for lesson in lessons:
+            if lesson.id in lesson_colors:
+                color = lesson_colors[lesson.id]
+                day = color // self.time_slots
+                start_hour = color % self.time_slots
+
+                # Find a suitable instructor and classroom (simple greedy search)
+                instructor = next((i for i in instructors if i.department_id == lesson.department_id), random.choice(instructors))
+                classroom = None
+                if not lesson.is_online:
+                    suitable_classrooms = [c for c in classrooms if c.is_suitable_for_lesson(lesson)]
+                    if suitable_classrooms:
+                        classroom = random.choice(suitable_classrooms)
+                    else: # Fallback if no perfectly suitable classroom found
+                        classroom = random.choice([c for c in classrooms if c.capacity >= lesson.student_capacity])
+
+                # Check placement validity (ignoring student group conflicts as graph handles it)
+                temp_schedule = {k: v for k, v in schedule.items() if k != lesson.id}
+                if self._is_valid_placement(temp_schedule, lesson, instructor, classroom, start_hour, day):
+                     schedule[lesson.id] = {
+                        'lesson': lesson, 'instructor': instructor, 'classroom': classroom,
+                        'start_hour': start_hour, 'day': day, 'duration': lesson.total_hours
+                    }
+
+        return schedule
+
+
     def _create_random_schedule(self, lessons, instructors, classrooms):
         """Create completely random schedule"""
         schedule = {}
@@ -595,41 +679,78 @@ class AdvancedScheduleOptimizer:
         
         return daily_score + hourly_score
     
+    # _calculate_student_satisfaction fonksiyonu değiştirildi
     def _calculate_student_satisfaction(self, schedule, lessons):
-        """Estimate student satisfaction based on schedule quality"""
-        satisfaction = 50  # Base satisfaction
-        
-        # Analyze gaps and clustering
-        daily_schedules = {}
+        """Estimate student satisfaction based on schedule quality (ADVANCED)"""
+        if not lessons:
+            return 0
+
+        # Her sınıf seviyesi için günlük programları grupla
+        grade_schedules = {}
+        for lesson in lessons:
+            if lesson.grade not in grade_schedules:
+                grade_schedules[lesson.grade] = [[] for _ in range(self.days)]
+
         for placement in schedule.values():
-            if not placement.get('forced'):
-                day = placement['day']
-                if day not in daily_schedules:
-                    daily_schedules[day] = []
-                daily_schedules[day].append((placement['start_hour'], placement['start_hour'] + placement['duration']))
-        
-        for day, day_schedule in daily_schedules.items():
-            if len(day_schedule) > 1:
-                day_schedule.sort()
+            lesson = placement['lesson']
+            day = placement['day']
+            start_hour = placement['start_hour']
+            duration = placement['duration']
+            
+            if lesson.grade in grade_schedules:
+                grade_schedules[lesson.grade][day].append({
+                    'start': start_hour,
+                    'end': start_hour + duration,
+                    'difficulty': lesson.difficulty
+                })
+
+        total_score = 0
+        grade_count = len(grade_schedules)
+
+        if grade_count == 0:
+            return 50 # Nötr puan
+
+        # Her sınıf seviyesinin programını değerlendir
+        for grade, daily_schedules in grade_schedules.items():
+            grade_score = 100 # Her sınıf 100 puan üzerinden başlar
+            
+            for day_schedule in daily_schedules:
+                if not day_schedule:
+                    continue
+
+                # O gün sadece 1 ders varsa ceza uygula (E3)
+                if len(day_schedule) == 1:
+                    grade_score -= 15
+
+                # Gün içi boş zamanı ve zor dersleri değerlendir
+                if len(day_schedule) > 1:
+                    day_schedule.sort(key=lambda x: x['start'])
+                    
+                    # İlk ve son ders arasındaki toplam süreyi kontrol et (A7)
+                    first_lesson_start = day_schedule[0]['start']
+                    last_lesson_end = day_schedule[-1]['end']
+                    total_span = last_lesson_end - first_lesson_start
+                    
+                    if total_span > 6: # 3 saatten fazla yayılma varsa
+                        grade_score -= (total_span - 6) * 2 # Her yarım saatlik ek yayılma için ceza
+
+                    # Dersler arası boşlukları kontrol et
+                    for i in range(len(day_schedule) - 1):
+                        gap = day_schedule[i+1]['start'] - day_schedule[i]['end']
+                        if gap > 4: # 2 saatten uzun boşluk varsa
+                            grade_score -= 10
                 
-                # Calculate gaps between classes
-                for i in range(len(day_schedule) - 1):
-                    gap = day_schedule[i+1][0] - day_schedule[i][1]
-                    if gap == 1:  # 30-min break (good)
-                        satisfaction += 2
-                    elif gap == 2:  # 1-hour break (acceptable)
-                        satisfaction += 1
-                    elif gap > 4:  # Long gap (bad)
-                        satisfaction -= 3
-                
-                # Prefer morning starts
-                first_class_start = day_schedule[0][0]
-                if 2 <= first_class_start <= 4:  # 9:30-11:30 start
-                    satisfaction += 3
-                elif first_class_start < 2:  # Too early
-                    satisfaction -= 2
-        
-        return max(0, min(satisfaction, 100))
+                # Zor derslerin sabah saatlerinde olmasını ödüllendir (E11)
+                for lesson_slot in day_schedule:
+                    # Zorluk 4 veya 5 ise ve ders sabah saatlerindeyse (ilk 4 slot)
+                    if lesson_slot['difficulty'] >= 4 and lesson_slot['start'] < 4:
+                        grade_score += 5 * (lesson_slot['difficulty'] - 3) # Zorluk 4 için +5, 5 için +10 puan
+            
+            total_score += max(0, grade_score) # Negatif puana düşmesini engelle
+
+        # Ortalamayı al ve 0-100 aralığına normalize et
+        final_satisfaction = (total_score / grade_count)
+        return max(0, min(final_satisfaction, 100))
     
     def _get_current_academic_year(self):
         """Get current academic year string"""
@@ -1228,42 +1349,51 @@ class AdvancedScheduleOptimizer:
         
         return improved_population
     
+    #GÜNCELLENDİ
     def _local_search_improvement(self, schedule, lessons, instructors, classrooms):
-        """Apply local search to improve a single schedule"""
+        """Apply local search to improve a single schedule using a simulated annealing approach."""
         improved = deepcopy(schedule)
         current_fitness = self._enhanced_fitness_function(improved, lessons, instructors, classrooms)
         
-        improvement_found = True
-        iterations = 0
-        
-        while improvement_found and iterations < 10:
-            improvement_found = False
-            iterations += 1
+        # Try a few random improvements
+        for _ in range(10): # Try 10 local moves
             
-            # Try small improvements
-            for lesson_id, placement in list(improved.items()):
-                lesson = placement['lesson']
+            # Select a random lesson to modify
+            if not improved:
+                continue
+            lesson_id_to_move = random.choice(list(improved.keys()))
+            placement = improved[lesson_id_to_move]
+            lesson = placement['lesson']
+
+            # Create a temporary schedule without this lesson
+            temp_schedule = {k: v for k, v in improved.items() if k != lesson_id_to_move}
+
+            # Find a new valid random placement
+            for attempt in range(20): # Try to find a new spot
+                new_day = random.randint(0, self.days - 1)
+                max_start = max(0, self.time_slots - lesson.total_hours)
+                new_start_hour = random.randint(0, max_start)
                 
-                # Try adjacent time slots
-                for time_delta in [-1, 1]:
-                    new_start_hour = placement['start_hour'] + time_delta
-                    if 0 <= new_start_hour <= self.time_slots - lesson.total_hours:
-                        
-                        temp_schedule = {k: v for k, v in improved.items() if k != lesson_id}
-                        if self._is_valid_placement(temp_schedule, lesson, placement['instructor'],
-                                                  placement['classroom'], new_start_hour, placement['day']):
-                            
-                            test_schedule = deepcopy(improved)
-                            test_schedule[lesson_id]['start_hour'] = new_start_hour
-                            
-                            test_fitness = self._enhanced_fitness_function(test_schedule, lessons, instructors, classrooms)
-                            if test_fitness > current_fitness:
-                                improved = test_schedule
-                                current_fitness = test_fitness
-                                improvement_found = True
-                                break
-                
-                if improvement_found:
-                    break
+                if self._is_valid_placement(temp_schedule, lesson, placement['instructor'],
+                                          placement['classroom'], new_start_hour, placement['day']):
+                    
+                    test_schedule = deepcopy(improved)
+                    test_schedule[lesson_id_to_move]['day'] = new_day
+                    test_schedule[lesson_id_to_move]['start_hour'] = new_start_hour
+                    
+                    test_fitness = self._enhanced_fitness_function(test_schedule, lessons, instructors, classrooms)
+                    
+                    # Decision logic (Simulated Annealing)
+                    if test_fitness > current_fitness:
+                        improved = test_schedule
+                        current_fitness = test_fitness
+                    else:
+                        # Accept a worse solution with a certain probability
+                        delta = current_fitness - test_fitness
+                        acceptance_probability = np.exp(-delta / self.current_temperature)
+                        if random.random() < acceptance_probability:
+                            improved = test_schedule
+                            current_fitness = test_fitness
+                    break # Move to the next local search iteration
         
         return improved

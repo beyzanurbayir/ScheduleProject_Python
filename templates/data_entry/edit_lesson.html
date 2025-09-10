@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Lesson - {{ lesson.name }}{% endblock %}
+
+{% block content %}
+<div class="col-12 col-md-8 mx-auto">
+    <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Edit Lesson</h1>
+        <a href="{{ url_for('data_entry.lessons') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to List
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label for="name" class="form-label">Lesson Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ lesson.name }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="code" class="form-label">Code</label>
+                        <input type="text" class="form-control" id="code" name="code" value="{{ lesson.code }}" style="text-transform: uppercase;">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="department_id" class="form-label">Department *</label>
+                        <select class="form-select" id="department_id" name="department_id" required>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if dept.id == lesson.department_id %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="grade" class="form-label">Grade *</label>
+                        <select class="form-select" id="grade" name="grade" required>
+                             {% for i in range(1, 5) %}
+                                <option value="{{ i }}" {% if i == lesson.grade %}selected{% endif %}>Grade {{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="theory_hours" class="form-label">Theory Hours</label>
+                        <input type="number" class="form-control" id="theory_hours" name="theory_hours" value="{{ lesson.theory_hours }}" min="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="practice_hours" class="form-label">Practice Hours</label>
+                        <input type="number" class="form-control" id="practice_hours" name="practice_hours" value="{{ lesson.practice_hours }}" min="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="lab_hours" class="form-label">Lab Hours</label>
+                        <input type="number" class="form-control" id="lab_hours" name="lab_hours" value="{{ lesson.lab_hours }}" min="0">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="student_capacity" class="form-label">Student Capacity *</label>
+                        <input type="number" class="form-control" id="student_capacity" name="student_capacity" value="{{ lesson.student_capacity }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="difficulty" class="form-label">Lesson Difficulty (1-5)</label>
+                        <input type="range" class="form-range" id="difficulty" name="difficulty" 
+                                       min="1" max="5" value="3">
+                        <div class="form-text">1: Very Easy, 5: Very Hard</div>
+                    </div>
+                </div>
+
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="true" {% if lesson.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Active</label>
+                </div>
+                 <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="requires_lab" name="requires_lab" value="true" {% if lesson.requires_lab %}checked{% endif %}>
+                    <label class="form-check-label" for="requires_lab">Requires Laboratory</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

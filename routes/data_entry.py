@@ -392,6 +392,7 @@ def create_lesson():
                 local_credit=float(request.form.get('local_credit', 0)),
                 student_capacity=int(request.form['student_capacity']),
                 min_capacity=int(request.form.get('min_capacity', 5)),
+                difficulty=int(request.form.get('difficulty', 3)), # YENİ SATIR
                 is_online=bool(request.form.get('is_online')),
                 requires_lab=bool(request.form.get('requires_lab')),
                 requires_computer=bool(request.form.get('requires_computer')),
@@ -438,6 +439,7 @@ def edit_lesson(lesson_id):
             lesson.local_credit = float(request.form.get('local_credit', 0))
             lesson.student_capacity = int(request.form['student_capacity'])
             lesson.min_capacity = int(request.form.get('min_capacity', 5))
+            lesson.difficulty = int(request.form.get('difficulty', 3)) # YENİ SATIR
             lesson.is_online = bool(request.form.get('is_online'))
             lesson.requires_lab = bool(request.form.get('requires_lab'))
             lesson.requires_computer = bool(request.form.get('requires_computer'))
