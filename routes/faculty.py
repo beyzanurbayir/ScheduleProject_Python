@@ -306,9 +306,53 @@ def index():
         flash('Error loading faculties', 'error')
         return render_template('faculty/index.html', faculty_stats=[])
 
-@faculty_bp.route('/create')
+@faculty_bp.route('/create', methods=['GET', 'POST'])
 def create():
     """Yeni fakülte oluşturma sayfası"""
+    if request.method == 'POST':
+        try:
+            name = request.form['name'].strip()
+            code = request.form['code'].strip().upper()
+            building = request.form.get('building', '').strip() or None
+            
+            # Validation
+            if len(name) < 3:
+                flash('Faculty name must be at least 3 characters long', 'error')
+                return render_template('faculty/create.html')
+            
+            if len(code) < 2:
+                flash('Faculty code must be at least 2 characters long', 'error')
+                return render_template('faculty/create.html')
+            
+            # Unique kontrolü
+            existing_name = Faculty.query.filter_by(name=name).first()
+            if existing_name:
+                flash('Faculty name already exists', 'error')
+                return render_template('faculty/create.html')
+            
+            existing_code = Faculty.query.filter_by(code=code).first()
+            if existing_code:
+                flash('Faculty code already exists', 'error')
+                return render_template('faculty/create.html')
+            
+            # Yeni fakülte oluştur
+            faculty = Faculty(
+                name=name,
+                code=code,
+                building=building
+            )
+            
+            db.session.add(faculty)
+            db.session.commit()
+            
+            flash(f'Faculty "{name}" created successfully!', 'success')
+            return redirect(url_for('faculty.index'))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating faculty: {e}")
+            flash(f'Error creating faculty: {str(e)}', 'error')
+    
     return render_template('faculty/create.html')
 
 @faculty_bp.route('/edit/<int:faculty_id>')

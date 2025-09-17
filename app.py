@@ -14,6 +14,10 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     app.config['DATABASE_URL'] = os.environ.get('DATABASE_URL', 'sqlite:///schedule_optimizer.db')
     
+    # ✅ BU SATIRLARI EKLEYİN
+    app.config['DEBUG'] = True
+    app.config['FLASK_DEBUG'] = True
+    
     # Initialize database
     init_db(app)
     

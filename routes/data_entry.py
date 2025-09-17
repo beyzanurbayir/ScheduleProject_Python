@@ -15,7 +15,7 @@ def index():
 
 @data_entry_bp.route('/departments')
 def departments():
-    # YENİ: Faculty filtreleme desteği
+    # Faculty filtreleme desteği
     faculty_id = request.args.get('faculty_id', type=int)
     
     # Base query
@@ -26,7 +26,7 @@ def departments():
         query = query.filter_by(faculty_id=faculty_id)
     
     departments = query.order_by(Department.name).all()
-    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()  # YENİ: Faculty listesi
+    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
     
     # Department statistics by faculty
     department_stats = []
@@ -41,9 +41,9 @@ def departments():
         })
     
     return render_template('data_entry/departments.html', 
-                         department_stats=department_stats,  # YENİ: stats yerine departments
-                         faculties=faculties,  # YENİ: Faculty listesi
-                         selected_faculty=faculty_id)  # YENİ: Seçili faculty
+                         department_stats=department_stats,
+                         faculties=faculties,
+                         selected_faculty=faculty_id)
 
 @data_entry_bp.route('/departments/create', methods=['GET', 'POST'])
 def create_department():
@@ -51,7 +51,7 @@ def create_department():
         try:
             name = request.form['name']
             code = request.form.get('code', '').upper()
-            faculty_id = int(request.form['faculty_id'])  # YENİ: Faculty seçimi zorunlu
+            faculty_id = int(request.form['faculty_id'])
             num_grades = int(request.form['num_grades'])
             
             # Faculty kontrolü
@@ -68,7 +68,7 @@ def create_department():
                 else:
                     code = name[:3].upper()
             
-            # YENİ: Code uniqueness check within faculty
+            # Code uniqueness check within faculty
             existing_dept = Department.query.filter_by(faculty_id=faculty_id, code=code).first()
             if existing_dept:
                 flash(f'Department code "{code}" already exists in {faculty.name}!', 'error')
@@ -77,7 +77,7 @@ def create_department():
             department = Department(
                 name=name,
                 code=code,
-                faculty_id=faculty_id,  # YENİ: Faculty assignment
+                faculty_id=faculty_id,
                 num_grades=num_grades,
                 head_of_department=request.form.get('head_of_department'),
                 building=request.form.get('building'),
@@ -95,14 +95,15 @@ def create_department():
         except (ValueError, IntegrityError) as e:
             flash(f'Error creating department: {str(e)}', 'error')
     
-    # YENİ: Active faculties for selection
+    # Active faculties for selection
     faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
     
     if not faculties:
         flash('No active faculties found. Please create a faculty first!', 'warning')
-        return redirect(url_for('faculty.index'))  # Redirect to faculty management
+        return redirect(url_for('faculty.index'))
     
     return render_template('data_entry/create_department.html', faculties=faculties)
+
 
 @data_entry_bp.route('/departments/<int:dept_id>/edit', methods=['GET', 'POST'])
 def edit_department(dept_id):
@@ -547,12 +548,20 @@ def schedule_maintenance(classroom_id):
 @data_entry_bp.route('/lessons')
 def lessons():
     dept_id = request.args.get('department_id', type=int)
+    faculty_id = request.args.get('faculty_id', type=int)
     grade = request.args.get('grade', type=int)
     semester = request.args.get('semester', type=int)
     
     query = Lesson.query
+    
+    # Department filter
     if dept_id:
         query = query.filter_by(department_id=dept_id)
+    elif faculty_id:
+        # Faculty filter - show all lessons from departments in this faculty
+        dept_ids = [d.id for d in Department.query.filter_by(faculty_id=faculty_id, is_active=True).all()]
+        query = query.filter(Lesson.department_id.in_(dept_ids))
+    
     if grade:
         query = query.filter_by(grade=grade)
     if semester:
@@ -560,11 +569,14 @@ def lessons():
 
     lessons = query.order_by(Lesson.department_id, Lesson.grade, Lesson.semester, Lesson.name).all()
     departments = Department.query.order_by(Department.name).all()
+    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
     
     return render_template('data_entry/lessons.html', 
                          lessons=lessons, 
                          departments=departments,
+                         faculties=faculties,
                          selected_dept=dept_id,
+                         selected_faculty=faculty_id,
                          selected_grade=grade,
                          selected_semester=semester)
 
@@ -580,30 +592,23 @@ def create_lesson():
                     prerequisite_ids = [int(x.strip()) for x in prerequisite_str.split(',') if x.strip()]
                 except ValueError:
                     flash('Invalid prerequisite IDs format. Use comma-separated numbers.', 'error')
-                    return render_template('data_entry/create_lesson.html', departments=Department.query.all())
+                    raise ValueError("Invalid prerequisites")
             
             lesson = Lesson(
                 name=request.form['name'],
-                code=request.form['code'].upper(),
+                code=request.form.get('code', '').upper(),
                 department_id=int(request.form['department_id']),
                 grade=int(request.form['grade']),
-                semester=int(request.form.get('semester', 1)),
-                theory_hours=int(request.form.get('theory_hours', 0)),
-                practice_hours=int(request.form.get('practice_hours', 0)),
-                lab_hours=int(request.form.get('lab_hours', 0)),
-                akts=int(request.form.get('akts', 0)),
-                local_credit=float(request.form.get('local_credit', 0)),
-                student_capacity=int(request.form['student_capacity']),
-                min_capacity=int(request.form.get('min_capacity', 5)),
-                difficulty=int(request.form.get('difficulty', 3)), # YENİ SATIR
-                is_online=bool(request.form.get('is_online')),
+                semester=int(request.form['semester']),
+                theoretical_hours=int(request.form.get('theoretical_hours', 0)),
+                practical_hours=int(request.form.get('practical_hours', 0)),
+                ects_credits=int(request.form.get('ects_credits', 3)),
+                student_capacity=int(request.form.get('student_capacity', 30)),
                 requires_lab=bool(request.form.get('requires_lab')),
                 requires_computer=bool(request.form.get('requires_computer')),
-                requires_projector=bool(request.form.get('requires_projector', True)),
-                is_elective=bool(request.form.get('is_elective')),
-                language=request.form.get('language', 'Turkish'),
-                exam_type=request.form.get('exam_type'),
-                prerequisite_ids=prerequisite_ids if prerequisite_ids else None
+                is_online=bool(request.form.get('is_online')),
+                prerequisite_ids=prerequisite_ids if prerequisite_ids else None,
+                description=request.form.get('description')
             )
             
             db.session.add(lesson)
@@ -612,11 +617,13 @@ def create_lesson():
             flash(f'Lesson "{lesson.name}" created successfully!', 'success')
             return redirect(url_for('data_entry.lessons'))
             
-        except (ValueError, IntegrityError) as e:
+        except ValueError as e:
             flash(f'Error creating lesson: {str(e)}', 'error')
     
     departments = Department.query.order_by(Department.name).all()
     return render_template('data_entry/create_lesson.html', departments=departments)
+
+
 
 @data_entry_bp.route('/lessons/<int:lesson_id>/edit', methods=['GET', 'POST'])
 def edit_lesson(lesson_id):
@@ -628,30 +635,27 @@ def edit_lesson(lesson_id):
             prerequisite_str = request.form.get('prerequisite_ids', '').strip()
             prerequisite_ids = []
             if prerequisite_str:
-                prerequisite_ids = [int(x.strip()) for x in prerequisite_str.split(',') if x.strip()]
+                try:
+                    prerequisite_ids = [int(x.strip()) for x in prerequisite_str.split(',') if x.strip()]
+                except ValueError:
+                    flash('Invalid prerequisite IDs format. Use comma-separated numbers.', 'error')
+                    raise ValueError("Invalid prerequisites")
             
             lesson.name = request.form['name']
-            lesson.code = request.form['code'].upper()
+            lesson.code = request.form.get('code', '').upper()
             lesson.department_id = int(request.form['department_id'])
             lesson.grade = int(request.form['grade'])
-            lesson.semester = int(request.form.get('semester', 1))
-            lesson.theory_hours = int(request.form.get('theory_hours', 0))
-            lesson.practice_hours = int(request.form.get('practice_hours', 0))
-            lesson.lab_hours = int(request.form.get('lab_hours', 0))
-            lesson.akts = int(request.form.get('akts', 0))
-            lesson.local_credit = float(request.form.get('local_credit', 0))
-            lesson.student_capacity = int(request.form['student_capacity'])
-            lesson.min_capacity = int(request.form.get('min_capacity', 5))
-            lesson.difficulty = int(request.form.get('difficulty', 3)) # YENİ SATIR
-            lesson.is_online = bool(request.form.get('is_online'))
+            lesson.semester = int(request.form['semester'])
+            lesson.theoretical_hours = int(request.form.get('theoretical_hours', 0))
+            lesson.practical_hours = int(request.form.get('practical_hours', 0))
+            lesson.ects_credits = int(request.form.get('ects_credits', 3))
+            lesson.student_capacity = int(request.form.get('student_capacity', 30))
             lesson.requires_lab = bool(request.form.get('requires_lab'))
             lesson.requires_computer = bool(request.form.get('requires_computer'))
-            lesson.requires_projector = bool(request.form.get('requires_projector'))
-            lesson.is_elective = bool(request.form.get('is_elective'))
-            lesson.language = request.form.get('language', 'Turkish')
-            lesson.exam_type = request.form.get('exam_type')
+            lesson.is_online = bool(request.form.get('is_online'))
             lesson.prerequisite_ids = prerequisite_ids if prerequisite_ids else None
-            lesson.is_active = bool(request.form.get('is_active', True))
+            lesson.description = request.form.get('description')
+            lesson.is_active = bool(request.form.get('is_active'))
             
             db.session.commit()
             flash(f'Lesson "{lesson.name}" updated successfully!', 'success')
@@ -688,12 +692,20 @@ def delete_lesson(lesson_id):
 @data_entry_bp.route('/instructors')
 def instructors():
     dept_id = request.args.get('department_id', type=int)
+    faculty_id = request.args.get('faculty_id', type=int)
     title = request.args.get('title')
     is_active = request.args.get('is_active')
     
     query = Instructor.query
+    
+    # Department filter
     if dept_id:
         query = query.filter_by(department_id=dept_id)
+    elif faculty_id:
+        # Faculty filter - show all instructors from departments in this faculty
+        dept_ids = [d.id for d in Department.query.filter_by(faculty_id=faculty_id, is_active=True).all()]
+        query = query.filter(Instructor.department_id.in_(dept_ids))
+    
     if title:
         query = query.filter_by(title=title)
     if is_active is not None:
@@ -701,6 +713,7 @@ def instructors():
     
     instructors = query.order_by(Instructor.department_id, Instructor.title, Instructor.name).all()
     departments = Department.query.order_by(Department.name).all()
+    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
     
     # Get available titles for filter
     titles = db.session.query(distinct(Instructor.title)).filter(Instructor.title.isnot(None)).all()
@@ -709,10 +722,13 @@ def instructors():
     return render_template('data_entry/instructors.html', 
                          instructors=instructors, 
                          departments=departments,
+                         faculties=faculties,
                          available_titles=available_titles,
                          selected_dept=dept_id,
+                         selected_faculty=faculty_id,
                          selected_title=title,
                          selected_active=is_active)
+
 
 @data_entry_bp.route('/instructors/create', methods=['GET', 'POST'])
 def create_instructor():
@@ -796,20 +812,11 @@ def edit_instructor(instructor_id):
             flash(f'Instructor "{instructor.name}" updated successfully!', 'success')
             return redirect(url_for('data_entry.instructors'))
             
-        except ValueError as e:
+        except (ValueError, IntegrityError) as e:
             flash(f'Error updating instructor: {str(e)}', 'error')
     
     departments = Department.query.order_by(Department.name).all()
-    
-    # Prepare data for display
-    languages_str = ', '.join(instructor.languages) if instructor.languages else 'Turkish'
-    specialization_str = ', '.join(instructor.specialization) if instructor.specialization else ''
-    
-    return render_template('data_entry/edit_instructor.html', 
-                         instructor=instructor, 
-                         departments=departments,
-                         languages_str=languages_str,
-                         specialization_str=specialization_str)
+    return render_template('data_entry/edit_instructor.html', instructor=instructor, departments=departments)
 
 @data_entry_bp.route('/instructors/<int:instructor_id>/delete', methods=['POST'])
 def delete_instructor(instructor_id):
@@ -864,71 +871,43 @@ def instructor_lessons(instructor_id):
     instructor = Instructor.query.get_or_404(instructor_id)
     
     if request.method == 'POST':
-        action = request.form.get('action')
-        
-        if action == 'auto_assign':
-            # Otomatik atama - aynı bölümdeki tüm dersleri ata
-            department_lessons = Lesson.query.filter_by(
-                department_id=instructor.department_id,
-                is_active=True
-            ).all()
+        try:
+            lesson_id = int(request.form['lesson_id'])
+            lesson = Lesson.query.get(lesson_id)
             
-            assigned_count = 0
-            for lesson in department_lessons:
-                # Zaten atanmış mı kontrol et
-                existing = InstructorLesson.query.filter_by(
-                    instructor_id=instructor_id,
-                    lesson_id=lesson.id
-                ).first()
-                
-                if not existing:
-                    assignment = InstructorLesson(
-                        instructor_id=instructor_id,
-                        lesson_id=lesson.id,
-                        competency_level=7,  # Varsayılan yetkinlik
-                        preference_level=5,  # Nötr tercih
-                        experience_years=1,  # Varsayılan tecrübe
-                        can_coordinate=False
-                    )
-                    db.session.add(assignment)
-                    assigned_count += 1
+            if not lesson or lesson.department_id != instructor.department_id:
+                flash('Invalid lesson selection!', 'error')
+                raise ValueError("Invalid lesson")
             
+            # Check if already assigned
+            existing = InstructorLesson.query.filter_by(
+                instructor_id=instructor_id,
+                lesson_id=lesson_id
+            ).first()
+            
+            if existing:
+                flash(f'Instructor already assigned to lesson "{lesson.name}"!', 'warning')
+                return redirect(url_for('data_entry.instructor_lessons', instructor_id=instructor_id))
+            
+            assignment = InstructorLesson(
+                instructor_id=instructor_id,
+                lesson_id=lesson_id,
+                competency_level=int(request.form.get('competency_level', 5)),
+                preference_level=int(request.form.get('preference_level', 5)),
+                experience_years=int(request.form.get('experience_years', 0)),
+                can_coordinate=bool(request.form.get('can_coordinate')),
+                teaching_evaluation_score=float(request.form['evaluation_score']) if request.form.get('evaluation_score') else None,
+                last_taught_semester=request.form.get('last_taught_semester'),
+                notes=request.form.get('notes')
+            )
+            
+            db.session.add(assignment)
             db.session.commit()
-            flash(f'{assigned_count} lessons automatically assigned to {instructor.name}!', 'success')
-            return redirect(url_for('data_entry.instructor_lessons', instructor_id=instructor_id))
-        
-        elif action == 'manual_assign':
-            # Manuel atama - mevcut kod
-            try:
-                lesson_id = int(request.form['lesson_id'])
-                competency = int(request.form.get('competency_level', 5))
-                preference = int(request.form.get('preference_level', 5))
-                experience = int(request.form.get('experience_years', 0))
-                can_coordinate = bool(request.form.get('can_coordinate'))
+            
+            flash(f'Lesson "{lesson.name}" assigned to instructor successfully!', 'success')
                 
-                existing = InstructorLesson.query.filter_by(
-                    instructor_id=instructor_id,
-                    lesson_id=lesson_id
-                ).first()
-                
-                if existing:
-                    flash('This lesson is already assigned to the instructor!', 'error')
-                else:
-                    assignment = InstructorLesson(
-                        instructor_id=instructor_id,
-                        lesson_id=lesson_id,
-                        competency_level=competency,
-                        preference_level=preference,
-                        experience_years=experience,
-                        can_coordinate=can_coordinate,
-                        notes=request.form.get('notes')
-                    )
-                    db.session.add(assignment)
-                    db.session.commit()
-                    flash('Lesson assignment added successfully!', 'success')
-                
-            except (ValueError, IntegrityError) as e:
-                flash(f'Error adding lesson assignment: {str(e)}', 'error')
+        except (ValueError, IntegrityError) as e:
+            flash(f'Error adding lesson assignment: {str(e)}', 'error')
     
     # GET için
     available_lessons = Lesson.query.filter_by(
@@ -978,50 +957,6 @@ def delete_instructor_lesson(assignment_id):
         flash(f'Error removing assignment: {str(e)}', 'error')
     
     return redirect(url_for('data_entry.instructor_lessons', instructor_id=instructor_id))
-
-
-
-
-
-@data_entry_bp.route('/departments/<int:dept_id>/edit', methods=['GET', 'POST'])
-def edit_department(dept_id):
-    department = Department.query.get_or_404(dept_id)
-    
-    if request.method == 'POST':
-        try:
-            department.name = request.form['name']
-            department.code = request.form.get('code', '').upper()
-            department.num_grades = int(request.form['num_grades'])
-            department.head_of_department = request.form.get('head_of_department')
-            department.building = request.form.get('building')
-            department.floor = int(request.form['floor']) if request.form.get('floor') else None
-            department.phone = request.form.get('phone')
-            department.email = request.form.get('email')
-            department.is_active = bool(request.form.get('is_active'))
-            
-            db.session.commit()
-            flash(f'Department "{department.name}" updated successfully!', 'success')
-            return redirect(url_for('data_entry.departments'))
-            
-        except (ValueError, IntegrityError) as e:
-            flash(f'Error updating department: {str(e)}', 'error')
-            
-    return render_template('data_entry/edit_department.html', department=department)
-
-@data_entry_bp.route('/departments/<int:dept_id>/delete', methods=['POST'])
-def delete_department(dept_id):
-    department = Department.query.get_or_404(dept_id)
-    try:
-        db.session.delete(department)
-        db.session.commit()
-        flash(f'Department "{department.name}" deleted successfully!', 'success')
-    except Exception as e:
-        flash(f'Error deleting department: {str(e)}. It might be in use by lessons or instructors.', 'error')
-        db.session.rollback()
-        
-    return redirect(url_for('data_entry.departments'))
-
-
 
 # routes/data_entry.py dosyasına eklenecek yeni fonksiyon
 @data_entry_bp.route('/classrooms/<int:classroom_id>/availability', methods=['GET', 'POST'])

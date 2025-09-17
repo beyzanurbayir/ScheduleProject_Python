@@ -1,4 +1,4 @@
-<!-- ===== templates/faculty/view.html - View Faculty Details ===== -->
+<!-- ===== templates/faculty/view.html - View Faculty Details (Basit Görüntüleme) ===== -->
 {% extends "base.html" %}
 
 {% block title %}{{ faculty.name }} - Faculty Details{% endblock %}
@@ -22,10 +22,77 @@
         </div>
     </div>
 
-    <!-- Faculty Info -->
+    <!-- Statistics Cards -->
     <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Departments</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_departments }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-building fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Lessons</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_lessons }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Instructors</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_instructors }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chalkboard-teacher fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Created</div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                {{ faculty.created_at.strftime('%Y-%m-%d') if faculty.created_at else 'N/A' }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Faculty Information -->
         <div class="col-md-8">
-            <div class="card shadow">
+            <div class="card shadow mb-4">
                 <div class="card-header">
                     <h6 class="m-0 font-weight-bold text-primary">Faculty Information</h6>
                 </div>
@@ -61,155 +128,182 @@
                             <table class="table table-borderless">
                                 <tr>
                                     <td><strong>Created:</strong></td>
-                                    <td>{{ faculty.created_at|datetime }}</td>
+                                    <td>{{ faculty.created_at.strftime('%Y-%m-%d %H:%M') if faculty.created_at else 'N/A' }}</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Last Updated:</strong></td>
-                                    <td>{{ faculty.updated_at|datetime }}</td>
+                                    <td>{{ faculty.updated_at.strftime('%Y-%m-%d %H:%M') if faculty.updated_at else 'N/A' }}</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Total Departments:</strong></td>
-                                    <td><span class="badge badge-success">{{ stats.total_departments }}</span></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Total Lessons:</strong></td>
-                                    <td><span class="badge badge-primary">{{ stats.total_lessons }}</span></td>
+                                    <td><span class="badge badge-primary">{{ stats.total_departments }}</span></td>
                                 </tr>
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-4">
-            <!-- Quick Stats -->
-            <div class="card shadow mb-3">
-                <div class="card-header">
-                    <h6 class="m-0 font-weight-bold text-success">Quick Statistics</h6>
-                </div>
-                <div class="card-body text-center">
-                    <div class="row">
-                        <div class="col-6 border-end">
-                            <h3 class="text-success">{{ stats.total_departments }}</h3>
-                            <small>Departments</small>
-                        </div>
-                        <div class="col-6">
-                            <h3 class="text-primary">{{ stats.total_lessons }}</h3>
-                            <small>Lessons</small>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row">
-                        <div class="col-12">
-                            <h3 class="text-warning">{{ stats.total_instructors }}</h3>
-                            <small>Instructors</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
+            <!-- Departments List -->
             <div class="card shadow">
                 <div class="card-header">
-                    <h6 class="m-0 font-weight-bold text-info">Quick Actions</h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">Departments ({{ departments|length }})</h6>
+                        <a href="{{ url_for('data_entry.create_department') }}?faculty_id={{ faculty.id }}" 
+                           class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus me-1"></i>Add Department
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if departments %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Department Name</th>
+                                        <th>Grades</th>
+                                        <th>Students</th>
+                                        <th>Lessons</th>
+                                        <th>Instructors</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for dept in departments %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ dept.name }}</strong>
+                                            {% if not dept.is_active %}
+                                                <span class="badge badge-secondary ms-1">Inactive</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ dept.num_grades }}</td>
+                                        <td>{{ dept.total_enrollment or 0 }}</td>
+                                        <td>
+                                            <span class="badge badge-primary">
+                                                {{ dept.lessons|selectattr('is_active')|list|length }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-success">
+                                                {{ dept.instructors|selectattr('is_active')|list|length }}
+                                            </span>
+                                        </td>
+                                        <td>{{ dept.created_at.strftime('%Y-%m-%d') if dept.created_at else 'N/A' }}</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{{ url_for('data_entry.lessons') }}?department_id={{ dept.id }}" 
+                                                   class="btn btn-sm btn-outline-info" title="View Lessons">
+                                                    <i class="fas fa-book"></i>
+                                                </a>
+                                                <a href="{{ url_for('data_entry.instructors') }}?department_id={{ dept.id }}" 
+                                                   class="btn btn-sm btn-outline-success" title="View Instructors">
+                                                    <i class="fas fa-user-tie"></i>
+                                                </a>
+                                                <a href="{{ url_for('data_entry.edit_department', department_id=dept.id) }}" 
+                                                   class="btn btn-sm btn-outline-primary" title="Edit Department">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info text-center">
+                            <h5><i class="fas fa-info-circle me-2"></i>No Departments Found</h5>
+                            <p>This faculty doesn't have any departments yet.</p>
+                            <a href="{{ url_for('data_entry.create_department') }}?faculty_id={{ faculty.id }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>Create First Department
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="col-md-4">
+            <!-- Quick Actions -->
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-success">Quick Actions</h6>
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('data_entry.create_department') }}?faculty_id={{ faculty.id }}" 
-                           class="btn btn-success btn-sm">
-                            <i class="fas fa-plus me-1"></i>Add Department
-                        </a>
                         <a href="{{ url_for('data_entry.departments') }}?faculty_id={{ faculty.id }}" 
-                           class="btn btn-outline-success btn-sm">
-                            <i class="fas fa-building me-1"></i>View All Departments
+                           class="btn btn-primary">
+                            <i class="fas fa-building me-2"></i>Manage Departments
                         </a>
-                        {% if stats.total_departments > 0 %}
-                            <a href="{{ url_for('optimization.configure') }}?faculty_id={{ faculty.id }}" 
-                               class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-calendar me-1"></i>Create Schedule
-                            </a>
-                        {% endif %}
+                        <a href="{{ url_for('data_entry.lessons') }}?faculty_id={{ faculty.id }}" 
+                           class="btn btn-info">
+                            <i class="fas fa-book me-2"></i>All Faculty Lessons
+                        </a>
+                        <a href="{{ url_for('data_entry.instructors') }}?faculty_id={{ faculty.id }}" 
+                           class="btn btn-secondary">
+                            <i class="fas fa-user-tie me-2"></i>All Faculty Instructors
+                        </a>
+                        <hr>
+                        <a href="{{ url_for('optimization.configure') }}" 
+                           class="btn btn-success">
+                            <i class="fas fa-magic me-2"></i>Create Schedule
+                        </a>
+                        <a href="{{ url_for('results.index') }}?faculty_id={{ faculty.id }}" 
+                           class="btn btn-outline-primary">
+                            <i class="fas fa-chart-bar me-2"></i>View Results
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Faculty Summary -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-info">Faculty Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="h4 text-primary">{{ stats.total_departments }}</div>
+                            <small class="text-muted">Departments</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="h4 text-success">{{ stats.total_lessons }}</div>
+                            <small class="text-muted">Total Lessons</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="h4 text-info">{{ stats.total_instructors }}</div>
+                            <small class="text-muted">Instructors</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="h4 text-warning">
+                                {% set total_students = departments|sum(attribute='total_enrollment') or 0 %}
+                                {{ total_students }}
+                            </div>
+                            <small class="text-muted">Students</small>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            Complexity: 
+                            {% if stats.total_lessons > 30 %}
+                                <span class="text-danger">High</span>
+                            {% elif stats.total_lessons > 10 %}
+                                <span class="text-warning">Medium</span>
+                            {% else %}
+                                <span class="text-success">Low</span>
+                            {% endif %}
+                        </small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Departments List -->
-    <div class="card shadow">
-        <div class="card-header">
-            <h6 class="m-0 font-weight-bold text-primary">
-                Departments ({{ departments|length }})
-                <a href="{{ url_for('data_entry.create_department') }}?faculty_id={{ faculty.id }}" 
-                   class="btn btn-sm btn-primary float-right">
-                    <i class="fas fa-plus me-1"></i>Add Department
-                </a>
-            </h6>
-        </div>
-        <div class="card-body">
-            {% if departments %}
-                <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Department Name</th>
-                                <th>Code</th>
-                                <th>Building</th>
-                                <th>Grades</th>
-                                <th>Head</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for dept in departments %}
-                                <tr>
-                                    <td><strong>{{ dept.name }}</strong></td>
-                                    <td><span class="badge badge-info">{{ dept.code }}</span></td>
-                                    <td>{{ dept.building or '-' }}</td>
-                                    <td>{{ dept.num_grades }} grades</td>
-                                    <td>{{ dept.head_of_department or '-' }}</td>
-                                    <td>
-                                        {% if dept.is_active %}
-                                            <span class="badge badge-success">Active</span>
-                                        {% else %}
-                                            <span class="badge badge-secondary">Inactive</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <a href="{{ url_for('data_entry.edit_department', dept_id=dept.id) }}" 
-                                               class="btn btn-sm btn-outline-primary" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <a href="{{ url_for('data_entry.lessons') }}?department_id={{ dept.id }}" 
-                                               class="btn btn-sm btn-outline-info" title="View Lessons">
-                                                <i class="fas fa-book"></i>
-                                            </a>
-                                            <a href="{{ url_for('data_entry.instructors') }}?department_id={{ dept.id }}" 
-                                               class="btn btn-sm btn-outline-warning" title="View Instructors">
-                                                <i class="fas fa-chalkboard-teacher"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center py-4">
-                    <i class="fas fa-building fa-3x text-gray-300 mb-3"></i>
-                    <h5 class="text-gray-600">No Departments Found</h5>
-                    <p class="text-muted">Create the first department for this faculty.</p>
-                    <a href="{{ url_for('data_entry.create_department') }}?faculty_id={{ faculty.id }}" 
-                       class="btn btn-success">
-                        <i class="fas fa-plus me-1"></i>Create Department
-                    </a>
-                </div>
-            {% endif %}
-        </div>
-    </div>
 </div>
-{% endblock %>
+{% endblock %}

@@ -30,6 +30,9 @@
                 <li><a class="dropdown-item" href="{{ url_for('data_entry.create_classroom') }}">
                     <i class="fas fa-door-open me-2"></i>Classroom
                 </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('faculty.create') }}">
+                    <i class="fas fa-university me-2"></i>Faculty
+                </a></li>
             </ul>
         </div>
     </div>
@@ -78,6 +81,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- Enhanced Quick Stats bölümüne ekle -->
+        <div class="col-md-2">
+            <div class="card card-stat bg-info text-white h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h3 class="mb-0" data-stat="faculties_count">{{ faculties_count|default(0) }}</h3>
+                        <p class="card-text mb-0">Faculties</p>
+                        <small class="opacity-75">Academic divisions</small>
+                    </div>
+                    <div class="fs-2">
+                        <i class="fas fa-university"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-md-2">
             <div class="card card-stat bg-warning text-white h-100">
                 <div class="card-body d-flex align-items-center">
@@ -414,6 +434,16 @@
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <i class="fas fa-university fa-2x text-info mb-2"></i>
+                                <h4>{{ faculties_count|default(0) }}</h4>
+                                <p class="mb-2">Faculties</p>
+                                <a href="{{ url_for('faculty.index') }}" class="btn btn-sm btn-outline-info">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </a>
+                            </div>
+                        </div>
                         <div class="col-md-3">
                             <div class="border rounded p-3 h-100">
                                 <i class="fas fa-building fa-2x text-primary mb-2"></i>

@@ -53,7 +53,7 @@ def index():
 def configure():
     if request.method == 'POST':
         try:
-            # YENİ: Multi-department ve faculty desteği
+            # Multi-department ve faculty desteği
             optimization_type = request.form.get('optimization_type')  # faculty, departments, single
             semester = int(request.form['semester'])
             academic_year = request.form.get('academic_year', '2024-2025')
@@ -336,18 +336,53 @@ def configure():
             flash(f'Optimization started: {optimization_name} - Semester {semester}!', 'success')
             return redirect(url_for('optimization.progress', session_id=session_id))
             
-        except (ValueError, Exception) as e:
-            logger.error(f"Error starting optimization: {str(e)}")
-            flash(f'Error starting optimization: {str(e)}', 'error')
+        except Exception as e:
+            logger.error(f"Configuration error: {e}")
+            flash(f'Configuration error: {str(e)}', 'error')
+            return redirect(url_for('optimization.configure'))
     
-    # GET request - show configuration form
-    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
-    
-    if not faculties:
-        flash('No active faculties found. Please create a faculty first!', 'warning')
-        return redirect(url_for('faculty.index'))
-    
-    return render_template('optimization/configure.html', faculties=faculties)
+    else:
+        # ✅ YENİ: GET request düzeltildi
+        try:
+            # Faculty hierarchy ile departments hesapla
+            faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
+            
+            # ✅ YENİ: Faculty stats hesapla (Template'in ihtiyacı olan veri!)
+            faculty_stats = []
+            for faculty in faculties:
+                departments = Department.query.filter_by(faculty_id=faculty.id, is_active=True).all()
+                
+                total_lessons = 0
+                total_instructors = 0
+                
+                for dept in departments:
+                    total_lessons += Lesson.query.filter_by(department_id=dept.id, is_active=True).count()
+                    total_instructors += Instructor.query.filter_by(department_id=dept.id, is_active=True).count()
+                
+                faculty_stats.append({
+                    'faculty': faculty,
+                    'department_count': len(departments),
+                    'lesson_count': total_lessons,
+                    'instructor_count': total_instructors
+                })
+            
+            # Backward compatibility için
+            departments = Department.query.filter_by(is_active=True).order_by(Department.name).all()
+            
+            # ✅ YENİ: Template'e her iki veriyi de gönder
+            return render_template('optimization/configure.html', 
+                                 faculty_stats=faculty_stats,  # Template bu veriyi bekliyor!
+                                 departments=departments)      # Geriye uyumluluk için
+            
+        except Exception as e:
+            logger.error(f"Error loading configure page: {e}")
+            flash('Error loading configuration page', 'error')
+            
+            # Fallback - hata durumunda
+            departments = Department.query.filter_by(is_active=True).all()
+            return render_template('optimization/configure.html', 
+                                 faculty_stats=[],  # Boş liste bile olsa template hata vermez
+                                 departments=departments)
 
 @optimization_bp.route('/test')
 def test():
@@ -535,3 +570,10 @@ def quick_optimization(template_type):
     return render_template('optimization/quick_template.html', 
                          template_type=template_type,
                          template_description=templates[template_type])
+    
+    
+@optimization_bp.route('/runs')
+def runs():
+    """Optimization runs listesi"""
+    runs = OptimizationRun.query.order_by(OptimizationRun.created_at.desc()).all()
+    return render_template('optimization/runs.html', runs=runs)

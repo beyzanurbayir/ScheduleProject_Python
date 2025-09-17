@@ -51,6 +51,10 @@
                             <i class="fas fa-database me-1"></i>Data Management
                         </a>
                         <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('faculty.index') }}">
+                                <i class="fas fa-university me-2"></i>Faculties
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('data_entry.departments') }}">Departments</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('data_entry.lessons') }}">Lessons</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('data_entry.instructors') }}">Instructors</a></li>
@@ -63,7 +67,7 @@
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ url_for('optimization.configure') }}">New Optimization</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('optimization.runs') }}">View Runs</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('optimization.index') }}">View Runs</a></li>
                         </ul>
                     </li>
                     <li class="nav-item">
