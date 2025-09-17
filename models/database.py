@@ -1,4 +1,4 @@
-# ===== models/database.py - Geliştirilmiş =====
+# ===== models/database.py - Faculty Support Added =====
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from sqlalchemy import JSON, Float
@@ -13,12 +13,41 @@ def init_db(app):
     with app.app_context():
         db.create_all()
 
+# === YENİ: FACULTY MODEL ===
+class Faculty(db.Model):
+    __tablename__ = 'faculties'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    code = db.Column(db.String(10), nullable=False, unique=True)  # Fakülte kodu (FEN, MUH, etc.)
+    building = db.Column(db.String(100), nullable=True)  # Ana bina (algoritmada opsiyonel etki için)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    departments = db.relationship('Department', backref='faculty_ref', lazy=True, cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'code': self.code,
+            'building': self.building,
+            'is_active': self.is_active,
+            'department_count': len(self.departments),
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+# === GÜNCELLENEN: DEPARTMENT MODEL ===
 class Department(db.Model):
     __tablename__ = 'departments'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False, unique=True)
-    code = db.Column(db.String(10), nullable=False, unique=True)  # Bölüm kodu (CS, EE, etc.)
+    name = db.Column(db.String(200), nullable=False)
+    code = db.Column(db.String(10), nullable=False)  # Bölüm kodu (CS, EE, etc.)
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculties.id'), nullable=False)  # YENİ: Faculty bağlantısı
     num_grades = db.Column(db.Integer, nullable=False)
     head_of_department = db.Column(db.String(200), nullable=True)  # Bölüm başkanı
     building = db.Column(db.String(100), nullable=True)  # Ana bina
@@ -33,11 +62,17 @@ class Department(db.Model):
     lessons = db.relationship('Lesson', backref='department_ref', lazy=True, cascade='all, delete-orphan')
     instructors = db.relationship('Instructor', backref='department_ref', lazy=True, cascade='all, delete-orphan')
     
+    # YENİ: Unique constraint (faculty içinde department code unique olmalı)
+    __table_args__ = (db.UniqueConstraint('faculty_id', 'code'),)
+    
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
             'code': self.code,
+            'faculty_id': self.faculty_id,
+            'faculty_name': self.faculty_ref.name if self.faculty_ref else None,
+            'faculty_code': self.faculty_ref.code if self.faculty_ref else None,
             'num_grades': self.num_grades,
             'head_of_department': self.head_of_department,
             'building': self.building,
@@ -70,10 +105,10 @@ class Lesson(db.Model):
     requires_computer = db.Column(db.Boolean, nullable=False, default=False)
     requires_projector = db.Column(db.Boolean, nullable=False, default=True)
     is_elective = db.Column(db.Boolean, nullable=False, default=False)  # Seçmeli ders mi?
-    prerequisite_ids = db.Column(JSON, nullable=True)  # Önkoşul ders ID'leri
-    language = db.Column(db.String(20), nullable=False, default='Turkish')  # Ders dili
-    difficulty = db.Column(db.Integer, nullable=False, default=3) # 1-5 (Kolay-Zor)
-    exam_type = db.Column(db.String(50), nullable=True)  # Final, Vize+Final, Proje vb.
+    language = db.Column(db.String(50), nullable=False, default='Turkish')  # Ders dili
+    exam_type = db.Column(db.String(50), nullable=False, default='Written')  # Sınav türü
+    difficulty = db.Column(db.Integer, nullable=False, default=3)  # 1-5 zorluk seviyesi
+    prerequisites = db.Column(JSON, nullable=True)  # Önkoşul dersler
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -89,6 +124,7 @@ class Lesson(db.Model):
             'code': self.code,
             'department_id': self.department_id,
             'department_name': self.department_ref.name,
+            'faculty_name': self.department_ref.faculty_ref.name if self.department_ref.faculty_ref else None,
             'grade': self.grade,
             'semester': self.semester,
             'theory_hours': self.theory_hours,
@@ -106,6 +142,7 @@ class Lesson(db.Model):
             'is_elective': self.is_elective,
             'language': self.language,
             'exam_type': self.exam_type,
+            'difficulty': self.difficulty,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
@@ -131,14 +168,13 @@ class Classroom(db.Model):
     technical_equipment = db.Column(JSON, nullable=True)  # Teknik ekipman listesi
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     is_bookable = db.Column(db.Boolean, nullable=False, default=True)  # Rezervasyon yapılabilir mi?
-    maintenance_schedule = db.Column(JSON, nullable=True)  # Bakım programı
-    building = db.Column(db.String(50), nullable=False)
-    floor = db.Column(db.Integer, nullable=False)
-    room_number = db.Column(db.String(20), nullable=True)
-    department_priority = db.Column(JSON, nullable=True)  # Hangi bölümler öncelikli kullanır
+    building = db.Column(db.String(100), nullable=True)  # Hangi binada
+    floor = db.Column(db.Integer, nullable=True)  # Hangi katta
+    room_number = db.Column(db.String(20), nullable=True)  # Oda numarası
+    department_priority = db.Column(JSON, nullable=True)  # Hangi bölümlerin önceliği var
     usage_cost_per_hour = db.Column(db.Float, nullable=True)  # Saatlik kullanım maliyeti
-    cleaning_time_minutes = db.Column(db.Integer, nullable=False, default=15)  # Temizlik süresi
-    setup_time_minutes = db.Column(db.Integer, nullable=False, default=5)  # Hazırlık süresi
+    cleaning_time_minutes = db.Column(db.Integer, nullable=False, default=15)  # Dersler arası temizlik süresi
+    setup_time_minutes = db.Column(db.Integer, nullable=False, default=10)  # Kurulum süresi
     notes = db.Column(db.Text, nullable=True)
     location_coordinates = db.Column(JSON, nullable=True)  # GPS koordinatları
     photo_urls = db.Column(JSON, nullable=True)  # Derslik fotoğrafları
@@ -146,34 +182,6 @@ class Classroom(db.Model):
     next_maintenance_date = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    availability = db.Column(JSON, nullable=True)  # Saatlik müsaitlik matrisi (10x5)
-    
-    # İlişkiler
-    availability_exceptions = db.relationship('ClassroomAvailability', backref='classroom_ref', lazy=True, cascade='all, delete-orphan')
-    
-    @property
-    def effective_capacity(self):
-        """Sınav döneminde farklı kapasite kullanılabilir"""
-        return self.exam_capacity if self.exam_capacity else self.capacity
-    
-    def is_suitable_for_lesson(self, lesson):
-        """Dersin gereksinimlerine göre dersliğin uygunluğunu kontrol eder"""
-        if not self.is_active or not self.is_bookable:
-            return False
-        
-        if self.capacity < lesson.student_capacity:
-            return False
-            
-        if lesson.requires_lab and not self.has_lab:
-            return False
-            
-        if lesson.requires_computer and not self.has_computer:
-            return False
-            
-        if lesson.requires_projector and not self.has_projector:
-            return False
-            
-        return True
     
     def to_dict(self):
         return {
@@ -249,42 +257,19 @@ class Instructor(db.Model):
     start_date = db.Column(db.DateTime, nullable=True)  # İşe başlama tarihi
     end_date = db.Column(db.DateTime, nullable=True)  # Sözleşme bitiş tarihi
     sabbatical_periods = db.Column(JSON, nullable=True)  # Araştırma izni dönemleri
-    teaching_load_factor = db.Column(db.Float, nullable=False, default=1.0)  # Ders yükü katsayısı
-    research_activities = db.Column(JSON, nullable=True)  # Araştırma faaliyetleri
+    teaching_load_factor = db.Column(db.Float, nullable=False, default=1.0)  # Ders yükü faktörü
     is_active = db.Column(db.Boolean, nullable=False, default=True)
-    is_available = db.Column(db.Boolean, nullable=False, default=True)
+    is_available = db.Column(db.Boolean, nullable=False, default=True)  # Şu anda ders verebilir mi?
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    lesson_assignments = db.relationship('InstructorLesson', backref='instructor_ref', lazy=True, cascade='all, delete-orphan')
+    lesson_assignments = db.relationship('InstructorLesson', backref='instructor', lazy=True)
     
     def get_current_weekly_hours(self):
-        """Mevcut haftalık ders yükünü hesapla"""
-        total_hours = 0
-        for assignment in self.lesson_assignments:
-            if assignment.lesson.is_active:
-                total_hours += assignment.lesson.total_hours
-        return total_hours
-    
-    def can_teach_lesson(self, lesson):
-        """Akademisyenin dersi verebilip veremediğini kontrol eder"""
-        if not self.is_active or not self.is_available:
-            return False
-            
-        # Bölüm kontrolü
-        if self.department_id != lesson.department_id:
-            return False
-            
-        # Dil kontrolü
-        if self.languages and lesson.language not in self.languages:
-            return False
-            
-        # Uzmanlık alanı kontrolü
-        assignment = next((ia for ia in self.lesson_assignments if ia.lesson_id == lesson.id), None)
-        return assignment is not None
-    
-    
+        """Calculate current weekly teaching hours"""
+        # Bu fonksiyon optimize edilebilir veya cache'lenebilir
+        return sum([assignment.lesson.total_hours for assignment in self.lesson_assignments])
     
     def to_dict(self):
         return {
@@ -297,6 +282,7 @@ class Instructor(db.Model):
             'academic_degree': self.academic_degree,
             'department_id': self.department_id,
             'department_name': self.department_ref.name,
+            'faculty_name': self.department_ref.faculty_ref.name if self.department_ref.faculty_ref else None,
             'office_location': self.office_location,
             'specialization': self.specialization,
             'languages': self.languages,
@@ -335,17 +321,26 @@ class InstructorLesson(db.Model):
     
     __table_args__ = (db.UniqueConstraint('instructor_id', 'lesson_id'),)
 
+# === GÜNCELLENEN: OPTIMIZATION RUN MODEL ===
 class OptimizationRun(db.Model):
     __tablename__ = 'optimization_runs'
     
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.String(50), nullable=False, unique=True)
-    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
+    
+    # YENİ: Faculty desteği
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculties.id'), nullable=True)  # Fakülte seçilirse
+    department_ids = db.Column(JSON, nullable=False)  # Seçili bölümler listesi
+    
     semester = db.Column(db.Integer, nullable=False)  # 1=Güz, 2=Bahar
     academic_year = db.Column(db.String(9), nullable=False)  # 2023-2024
     parameters = db.Column(JSON, nullable=False)
     constraints = db.Column(JSON, nullable=True)  # Ek kısıtlamalar
     objectives = db.Column(JSON, nullable=True)  # Optimizasyon hedefleri
+    
+    # YENİ: Building etkisi kontrolü
+    use_building_preference = db.Column(db.Boolean, nullable=False, default=False)  # Building etkisi kullanılsın mı?
+    
     status = db.Column(db.String(20), nullable=False, default='initialized')
     progress = db.Column(JSON, nullable=True)
     results = db.Column(JSON, nullable=True)
@@ -361,20 +356,30 @@ class OptimizationRun(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
     
     # Relationships
-    department = db.relationship('Department', backref='optimization_runs', lazy=True)
+    faculty = db.relationship('Faculty', backref='optimization_runs', lazy=True)
     schedules = db.relationship('Schedule', backref='optimization_run', lazy=True, cascade='all, delete-orphan')
     
+    def get_departments(self):
+        """Seçili bölümleri getir"""
+        if self.department_ids:
+            return Department.query.filter(Department.id.in_(self.department_ids)).all()
+        return []
+    
     def to_dict(self):
+        departments = self.get_departments()
         return {
             'id': self.id,
             'session_id': self.session_id,
-            'department_id': self.department_id,
-            'department_name': self.department.name,
+            'faculty_id': self.faculty_id,
+            'faculty_name': self.faculty.name if self.faculty else None,
+            'department_ids': self.department_ids,
+            'department_names': [dept.name for dept in departments],
             'semester': self.semester,
             'academic_year': self.academic_year,
             'parameters': self.parameters,
             'constraints': self.constraints,
             'objectives': self.objectives,
+            'use_building_preference': self.use_building_preference,
             'status': self.status,
             'progress': self.progress,
             'results': self.results,
@@ -408,6 +413,11 @@ class Schedule(db.Model):
     conflict_reasons = db.Column(JSON, nullable=True)  # Çakışma nedenleri
     quality_score = db.Column(db.Float, nullable=True)  # Ders programının kalite puanı
     preference_satisfaction = db.Column(db.Float, nullable=True)  # Tercih memnuniyeti
+    
+    # YENİ: Ortak ders bilgisi
+    is_shared_lesson = db.Column(db.Boolean, nullable=False, default=False)  # Ortak ders mi?
+    shared_lesson_departments = db.Column(JSON, nullable=True)  # Hangi bölümlerle ortak
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -416,32 +426,27 @@ class Schedule(db.Model):
     classroom = db.relationship('Classroom', backref='schedule_entries', lazy=True)
     
     def to_dict(self):
-        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-        start_time = f"{8 + self.start_hour//2}:{30 if self.start_hour%2 else '00'}"
-        end_hour = self.start_hour + self.duration
-        end_time = f"{8 + end_hour//2}:{30 if end_hour%2 else '00'}"
-        
         return {
             'id': self.id,
-            'lesson_name': self.lesson.name,
-            'lesson_code': self.lesson.code,
-            'lesson_type': self.lesson_type,
-            'instructor_name': self.instructor.name if self.instructor else 'Unassigned',
-            'instructor_title': self.instructor.title if self.instructor else None,
-            'classroom_name': self.classroom.name if self.classroom else 'Online',
-            'classroom_building': self.classroom.building if self.classroom else None,
-            'classroom_capacity': self.classroom.capacity if self.classroom else None,
-            'day_name': day_names[self.day_of_week],
+            'optimization_run_id': self.optimization_run_id,
+            'lesson_id': self.lesson_id,
+            'lesson_name': self.lesson.name if self.lesson else None,
+            'lesson_code': self.lesson.code if self.lesson else None,
+            'instructor_id': self.instructor_id,
+            'instructor_name': self.instructor.name if self.instructor else None,
+            'classroom_id': self.classroom_id,
+            'classroom_name': self.classroom.name if self.classroom else None,
             'day_of_week': self.day_of_week,
             'start_hour': self.start_hour,
-            'start_time': start_time,
-            'end_time': end_time,
             'duration': self.duration,
+            'lesson_type': self.lesson_type,
             'group_number': self.group_number,
             'student_count': self.student_count,
             'is_valid': self.is_valid,
             'conflict_reasons': self.conflict_reasons,
             'quality_score': self.quality_score,
             'preference_satisfaction': self.preference_satisfaction,
+            'is_shared_lesson': self.is_shared_lesson,
+            'shared_lesson_departments': self.shared_lesson_departments,
             'created_at': self.created_at.isoformat()
         }

@@ -1,8 +1,10 @@
+# ===== app.py - Faculty Blueprint Eklendi =====
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from models.database import init_db, db, Department, Lesson, Instructor, Classroom, OptimizationRun , InstructorLesson 
+from models.database import Faculty, init_db, db, Department, Lesson, Instructor, Classroom, OptimizationRun , InstructorLesson 
 from routes.data_entry import data_entry_bp
 from routes.optimization import optimization_bp
 from routes.results import results_bp
+from routes.faculty import faculty_bp  # YENİ: Faculty blueprint import
 from sqlalchemy import func , distinct
 import os
 from datetime import datetime, timedelta
@@ -19,12 +21,14 @@ def create_app():
     app.register_blueprint(data_entry_bp, url_prefix='/data')
     app.register_blueprint(optimization_bp, url_prefix='/optimize')
     app.register_blueprint(results_bp, url_prefix='/results')
+    app.register_blueprint(faculty_bp, url_prefix='/faculties')  # YENİ: Faculty blueprint register
     
     @app.route('/')
     def index():
         """Enhanced dashboard with comprehensive statistics"""
         try:
             # Basic counts
+            faculties_count = Faculty.query.filter_by(is_active=True).count()  # YENİ: Faculty count
             departments_count = Department.query.filter_by(is_active=True).count()
             lessons_count = Lesson.query.filter_by(is_active=True).count()
             instructors_count = Instructor.query.filter_by(is_active=True).count()
@@ -58,16 +62,18 @@ def create_app():
             
             # Data completeness score
             data_completeness = calculate_data_completeness(
-                departments_count, lessons_count, instructors_count, classrooms_count
+                faculties_count, departments_count, lessons_count, instructors_count, classrooms_count  # YENİ: faculties_count eklendi
             )
             
             # Setup progress
             setup_progress = calculate_setup_progress(
-                departments_count, lessons_count, instructors_count, classrooms_count, instructors_assigned
+                faculties_count, departments_count, lessons_count, instructors_count, classrooms_count, instructors_assigned  # YENİ: faculties_count eklendi
             )
             
             # System alerts
             system_alerts = []
+            if faculties_count == 0:  # YENİ: Faculty kontrolü
+                system_alerts.append("No faculties configured")
             if departments_count == 0:
                 system_alerts.append("No departments configured")
             if lessons_count < departments_count * 5:  # Assuming at least 5 lessons per department
@@ -88,6 +94,7 @@ def create_app():
             
             return render_template('index.html',
                                  # Basic counts
+                                 faculties_count=faculties_count,  # YENİ: Faculty count eklendi
                                  departments_count=departments_count,
                                  lessons_count=lessons_count,
                                  instructors_count=instructors_count,
@@ -116,6 +123,7 @@ def create_app():
             # Fallback with minimal data in case of database errors
             app.logger.error(f"Dashboard error: {str(e)}")
             return render_template('index.html',
+                                 faculties_count=0,  # YENİ: Faculty count eklendi
                                  departments_count=0,
                                  lessons_count=0,
                                  instructors_count=0,
@@ -130,6 +138,7 @@ def create_app():
         """API endpoint for real-time dashboard updates"""
         try:
             stats = {
+                'faculties_count': Faculty.query.filter_by(is_active=True).count(),  # YENİ: Faculty count
                 'departments_count': Department.query.filter_by(is_active=True).count(),
                 'lessons_count': Lesson.query.filter_by(is_active=True).count(),
                 'instructors_count': Instructor.query.filter_by(is_active=True).count(),
@@ -141,44 +150,46 @@ def create_app():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     
-    def calculate_data_completeness(departments, lessons, instructors, classrooms):
+    def calculate_data_completeness(faculties, departments, lessons, instructors, classrooms):  # YENİ: faculties parametresi eklendi
         """Calculate overall data completeness percentage"""
         score = 0
         
-        # Basic data presence (40 points)
+        # Basic data presence (50 points) - Faculty eklendi
+        if faculties > 0: score += 8  # YENİ: Faculty kontrolü
         if departments > 0: score += 10
-        if lessons > 0: score += 10
-        if instructors > 0: score += 10
+        if lessons > 0: score += 11
+        if instructors > 0: score += 11
         if classrooms > 0: score += 10
         
-        # Data ratios (40 points)
+        # Data ratios (30 points)
         if departments > 0:
             lessons_per_dept = lessons / departments
-            if lessons_per_dept >= 5: score += 10  # At least 5 lessons per department
-            elif lessons_per_dept >= 3: score += 5
+            if lessons_per_dept >= 5: score += 8  # At least 5 lessons per department
+            elif lessons_per_dept >= 3: score += 4
             
             instructors_per_dept = instructors / departments
-            if instructors_per_dept >= 3: score += 10  # At least 3 instructors per department
-            elif instructors_per_dept >= 1: score += 5
+            if instructors_per_dept >= 3: score += 7  # At least 3 instructors per department
+            elif instructors_per_dept >= 1: score += 3
         
-        # Classroom adequacy (20 points)
+        # Classroom adequacy (15 points)
         if lessons > 0 and classrooms > 0:
             classroom_ratio = classrooms / (lessons * 0.3)  # Assuming 30% of lessons need unique classrooms
-            if classroom_ratio >= 1: score += 15
-            elif classroom_ratio >= 0.5: score += 10
-            elif classroom_ratio >= 0.2: score += 5
+            if classroom_ratio >= 1: score += 10
+            elif classroom_ratio >= 0.5: score += 7
+            elif classroom_ratio >= 0.2: score += 3
         
-        # Bonus for well-structured data
-        if all([departments >= 2, lessons >= 10, instructors >= 5, classrooms >= 5]):
+        # Bonus for well-structured data (5 points)
+        if all([faculties >= 1, departments >= 2, lessons >= 10, instructors >= 5, classrooms >= 5]):  # YENİ: faculties kontrolü
             score += 5
         
         return min(score, 100)
     
-    def calculate_setup_progress(departments, lessons, instructors, classrooms, instructors_assigned):
+    def calculate_setup_progress(faculties, departments, lessons, instructors, classrooms, instructors_assigned):  # YENİ: faculties parametresi eklendi
         """Calculate setup progress percentage"""
-        total_steps = 5
+        total_steps = 6  # YENİ: 6 adım oldu (faculties dahil)
         completed_steps = 0
         
+        if faculties > 0: completed_steps += 1  # YENİ: Faculty adımı
         if departments > 0: completed_steps += 1
         if lessons > 0: completed_steps += 1
         if instructors > 0: completed_steps += 1
@@ -189,10 +200,11 @@ def create_app():
         
         # Bonus for sufficient data
         bonus = 0
-        if departments >= 2: bonus += 5
+        if faculties >= 1: bonus += 3  # YENİ: Faculty bonus
+        if departments >= 2: bonus += 4
         if lessons >= 10: bonus += 5
-        if instructors >= 5: bonus += 5
-        if classrooms >= 5: bonus += 5
+        if instructors >= 5: bonus += 4
+        if classrooms >= 5: bonus += 4
         
         return min(base_progress + bonus, 100)
     
@@ -243,9 +255,6 @@ def create_app():
             return "Just now"
     
     return app
-    
-
-
 
 
 if __name__ == '__main__':
