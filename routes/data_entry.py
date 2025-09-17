@@ -1,6 +1,6 @@
 # ===== routes/data_entry.py - Güncellenmiş =====
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from models.database import db, Department, Lesson, Instructor, Classroom, InstructorLesson, ClassroomAvailability
+from models.database import Faculty, db, Department, Lesson, Instructor, Classroom, InstructorLesson, ClassroomAvailability
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, distinct
 import json
@@ -15,8 +15,35 @@ def index():
 
 @data_entry_bp.route('/departments')
 def departments():
-    departments = Department.query.order_by(Department.name).all()
-    return render_template('data_entry/departments.html', departments=departments)
+    # YENİ: Faculty filtreleme desteği
+    faculty_id = request.args.get('faculty_id', type=int)
+    
+    # Base query
+    query = Department.query
+    
+    # Faculty filter
+    if faculty_id:
+        query = query.filter_by(faculty_id=faculty_id)
+    
+    departments = query.order_by(Department.name).all()
+    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()  # YENİ: Faculty listesi
+    
+    # Department statistics by faculty
+    department_stats = []
+    for dept in departments:
+        lesson_count = Lesson.query.filter_by(department_id=dept.id, is_active=True).count()
+        instructor_count = Instructor.query.filter_by(department_id=dept.id, is_active=True).count()
+        
+        department_stats.append({
+            'department': dept,
+            'lesson_count': lesson_count,
+            'instructor_count': instructor_count
+        })
+    
+    return render_template('data_entry/departments.html', 
+                         department_stats=department_stats,  # YENİ: stats yerine departments
+                         faculties=faculties,  # YENİ: Faculty listesi
+                         selected_faculty=faculty_id)  # YENİ: Seçili faculty
 
 @data_entry_bp.route('/departments/create', methods=['GET', 'POST'])
 def create_department():
@@ -24,7 +51,14 @@ def create_department():
         try:
             name = request.form['name']
             code = request.form.get('code', '').upper()
+            faculty_id = int(request.form['faculty_id'])  # YENİ: Faculty seçimi zorunlu
             num_grades = int(request.form['num_grades'])
+            
+            # Faculty kontrolü
+            faculty = Faculty.query.get(faculty_id)
+            if not faculty or not faculty.is_active:
+                flash('Selected faculty not found or inactive!', 'error')
+                raise ValueError("Invalid faculty")
             
             # Auto-generate code if not provided
             if not code:
@@ -34,9 +68,16 @@ def create_department():
                 else:
                     code = name[:3].upper()
             
+            # YENİ: Code uniqueness check within faculty
+            existing_dept = Department.query.filter_by(faculty_id=faculty_id, code=code).first()
+            if existing_dept:
+                flash(f'Department code "{code}" already exists in {faculty.name}!', 'error')
+                raise ValueError("Duplicate code")
+            
             department = Department(
                 name=name,
                 code=code,
+                faculty_id=faculty_id,  # YENİ: Faculty assignment
                 num_grades=num_grades,
                 head_of_department=request.form.get('head_of_department'),
                 building=request.form.get('building'),
@@ -48,13 +89,175 @@ def create_department():
             db.session.add(department)
             db.session.commit()
             
-            flash(f'Department "{name}" created successfully!', 'success')
+            flash(f'Department "{name}" created successfully in {faculty.name}!', 'success')
             return redirect(url_for('data_entry.departments'))
             
         except (ValueError, IntegrityError) as e:
             flash(f'Error creating department: {str(e)}', 'error')
     
-    return render_template('data_entry/create_department.html')
+    # YENİ: Active faculties for selection
+    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
+    
+    if not faculties:
+        flash('No active faculties found. Please create a faculty first!', 'warning')
+        return redirect(url_for('faculty.index'))  # Redirect to faculty management
+    
+    return render_template('data_entry/create_department.html', faculties=faculties)
+
+@data_entry_bp.route('/departments/<int:dept_id>/edit', methods=['GET', 'POST'])
+def edit_department(dept_id):
+    department = Department.query.get_or_404(dept_id)
+    
+    if request.method == 'POST':
+        try:
+            department.name = request.form['name']
+            new_code = request.form.get('code', '').upper()
+            new_faculty_id = int(request.form['faculty_id'])  # YENİ: Faculty değiştirilebilir
+            department.num_grades = int(request.form['num_grades'])
+            
+            # Faculty kontrolü
+            faculty = Faculty.query.get(new_faculty_id)
+            if not faculty or not faculty.is_active:
+                flash('Selected faculty not found or inactive!', 'error')
+                raise ValueError("Invalid faculty")
+            
+            # YENİ: Code uniqueness check within new faculty (if changed)
+            if new_code != department.code or new_faculty_id != department.faculty_id:
+                existing_dept = Department.query.filter_by(
+                    faculty_id=new_faculty_id, 
+                    code=new_code
+                ).filter(Department.id != dept_id).first()
+                
+                if existing_dept:
+                    flash(f'Department code "{new_code}" already exists in {faculty.name}!', 'error')
+                    raise ValueError("Duplicate code")
+            
+            # Assignments
+            department.code = new_code
+            department.faculty_id = new_faculty_id  # YENİ: Faculty güncellemesi
+            department.head_of_department = request.form.get('head_of_department')
+            department.building = request.form.get('building')
+            department.floor = int(request.form['floor']) if request.form.get('floor') else None
+            department.phone = request.form.get('phone')
+            department.email = request.form.get('email')
+            department.is_active = bool(request.form.get('is_active'))
+            department.updated_at = datetime.utcnow()  # YENİ: Update timestamp
+            
+            db.session.commit()
+            flash(f'Department "{department.name}" updated successfully!', 'success')
+            return redirect(url_for('data_entry.departments'))
+            
+        except (ValueError, IntegrityError) as e:
+            flash(f'Error updating department: {str(e)}', 'error')
+    
+    # YENİ: Active faculties for selection
+    faculties = Faculty.query.filter_by(is_active=True).order_by(Faculty.name).all()
+    
+    return render_template('data_entry/edit_department.html', 
+                         department=department, 
+                         faculties=faculties)
+
+@data_entry_bp.route('/departments/<int:dept_id>/delete', methods=['POST'])
+def delete_department(dept_id):
+    department = Department.query.get_or_404(dept_id)
+    
+    try:
+        # YENİ: Dependency kontrolü - daha ayrıntılı
+        lesson_count = Lesson.query.filter_by(department_id=dept_id, is_active=True).count()
+        instructor_count = Instructor.query.filter_by(department_id=dept_id, is_active=True).count()
+        
+        if lesson_count > 0:
+            flash(f'Cannot delete department "{department.name}": {lesson_count} active lessons exist!', 'error')
+            return redirect(url_for('data_entry.departments'))
+        
+        if instructor_count > 0:
+            flash(f'Cannot delete department "{department.name}": {instructor_count} active instructors exist!', 'error')
+            return redirect(url_for('data_entry.departments'))
+        
+        faculty_name = department.faculty_ref.name
+        dept_name = department.name
+        
+        db.session.delete(department)
+        db.session.commit()
+        
+        flash(f'Department "{dept_name}" deleted successfully from {faculty_name}!', 'success')
+        
+    except Exception as e:
+        flash(f'Error deleting department: {str(e)}', 'error')
+        db.session.rollback()
+        
+    return redirect(url_for('data_entry.departments'))
+
+# YENİ: API endpoint for faculty-department hierarchy
+@data_entry_bp.route('/api/faculties/<int:faculty_id>/departments', methods=['GET'])
+def api_get_faculty_departments(faculty_id):
+    """API: Belirli bir fakülteye ait aktif bölümleri getir"""
+    try:
+        faculty = Faculty.query.get(faculty_id)
+        if not faculty or not faculty.is_active:
+            return jsonify({
+                'success': False,
+                'error': 'Faculty not found or inactive'
+            }), 404
+        
+        departments = Department.query.filter_by(
+            faculty_id=faculty_id,
+            is_active=True
+        ).order_by(Department.name).all()
+        
+        return jsonify({
+            'success': True,
+            'data': [dept.to_dict() for dept in departments],
+            'faculty': faculty.to_dict()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch departments',
+            'message': str(e)
+        }), 500
+
+# YENİ: Quick stats API
+@data_entry_bp.route('/api/departments/stats', methods=['GET'])
+def api_department_stats():
+    """API: Department istatistikleri"""
+    try:
+        # Faculty başına department sayıları
+        faculty_stats = db.session.query(
+            Faculty.name.label('faculty_name'),
+            func.count(Department.id).label('department_count'),
+            func.count(Lesson.id).label('total_lessons'),
+            func.count(Instructor.id).label('total_instructors')
+        ).outerjoin(Department, Faculty.id == Department.faculty_id) \
+         .outerjoin(Lesson, Department.id == Lesson.department_id) \
+         .outerjoin(Instructor, Department.id == Instructor.department_id) \
+         .filter(Faculty.is_active == True) \
+         .group_by(Faculty.id, Faculty.name) \
+         .all()
+        
+        stats = []
+        for stat in faculty_stats:
+            stats.append({
+                'faculty_name': stat.faculty_name,
+                'department_count': stat.department_count,
+                'total_lessons': stat.total_lessons or 0,
+                'total_instructors': stat.total_instructors or 0
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': stats,
+            'total_departments': sum(s['department_count'] for s in stats)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch statistics',
+            'message': str(e)
+        }), 500
+
 
 # ... (diğer department routes aynı kalacak) ...
 

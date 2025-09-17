@@ -1,0 +1,213 @@
+<!-- ===== templates/faculty/create.html - Create Faculty Page ===== -->
+{% extends "base.html" %}
+
+{% block title %}Create Faculty{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-plus me-2"></i>Create New Faculty
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('faculty.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Faculties
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Faculty Information</h6>
+                </div>
+                <div class="card-body">
+                    <form id="facultyForm">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="form-group">
+                                    <label for="name" class="form-label">Faculty Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" required>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="code" class="form-label">Faculty Code *</label>
+                                    <input type="text" class="form-control" id="code" name="code" 
+                                           placeholder="e.g., FEN, MUH" style="text-transform: uppercase;" required>
+                                    <div class="invalid-feedback"></div>
+                                    <small class="form-text text-muted">Short code for the faculty (2-5 characters)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="building" class="form-label">Main Building</label>
+                            <input type="text" class="form-control" id="building" name="building" 
+                                   placeholder="e.g., Engineering Block, Main Campus">
+                            <small class="form-text text-muted">Optional: Main building where faculty is located</small>
+                        </div>
+
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Create Faculty
+                            </button>
+                            <button type="button" class="btn btn-secondary ms-2" onclick="resetForm()">
+                                <i class="fas fa-undo me-1"></i>Reset
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-info">Faculty Creation Tips</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>
+                            Choose a clear, descriptive name for your faculty
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-code text-info me-2"></i>
+                            Use a short, memorable code (e.g., "ENG" for Engineering)
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-building text-success me-2"></i>
+                            Building info helps with classroom optimization
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-primary me-2"></i>
+                            Faculty names and codes must be unique
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow mt-3">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-success">Next Steps</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">After creating the faculty, you can:</p>
+                    <ol>
+                        <li>Create departments within this faculty</li>
+                        <li>Add instructors to departments</li>
+                        <li>Create lessons for departments</li>
+                        <li>Generate schedules for the faculty</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Auto-generate code from name
+    $('#name').on('input', function() {
+        const name = $(this).val();
+        if (name && !$('#code').val()) {
+            const words = name.split(' ');
+            let code = '';
+            if (words.length >= 2) {
+                code = words.slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase();
+            } else {
+                code = name.substring(0, 3).toUpperCase();
+            }
+            $('#code').val(code);
+        }
+    });
+
+    // Form submission
+    $('#facultyForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            name: $('#name').val().trim(),
+            code: $('#code').val().trim().toUpperCase(),
+            building: $('#building').val().trim()
+        };
+
+        // Client-side validation
+        if (!formData.name || formData.name.length < 3) {
+            showError('name', 'Faculty name must be at least 3 characters long');
+            return;
+        }
+
+        if (!formData.code || formData.code.length < 2) {
+            showError('code', 'Faculty code must be at least 2 characters long');
+            return;
+        }
+
+        // Submit to API
+        $.ajax({
+            url: '/faculties/api/faculties',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    showSuccess('Faculty created successfully!');
+                    setTimeout(() => {
+                        window.location.href = '/faculties/';
+                    }, 1500);
+                } else {
+                    showError('general', response.error);
+                }
+            },
+            error: function(xhr) {
+                const response = xhr.responseJSON;
+                if (response && response.error) {
+                    showError('general', response.error);
+                } else {
+                    showError('general', 'Error creating faculty');
+                }
+            }
+        });
+    });
+});
+
+function showError(field, message) {
+    if (field === 'general') {
+        // Show general error
+        if (!$('#generalError').length) {
+            $('#facultyForm').prepend(
+                '<div id="generalError" class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                message +
+                '<button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>' +
+                '</div>'
+            );
+        }
+    } else {
+        $(`#${field}`).addClass('is-invalid');
+        $(`#${field}`).siblings('.invalid-feedback').text(message);
+    }
+}
+
+function showSuccess(message) {
+    $('#generalError').remove();
+    $('.is-invalid').removeClass('is-invalid');
+    $('#facultyForm').prepend(
+        '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
+        message +
+        '<button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>' +
+        '</div>'
+    );
+}
+
+function resetForm() {
+    $('#facultyForm')[0].reset();
+    $('.is-invalid').removeClass('is-invalid');
+    $('.alert').remove();
+}
+</script>
+{% endblock %}

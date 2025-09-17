@@ -7,7 +7,7 @@ from copy import deepcopy
 import time
 import logging
 # Yeni Doğru Satır
-from models.database import db, Lesson, Instructor, Classroom, OptimizationRun, Schedule, ClassroomAvailability
+from models.database import Faculty , Department, db, Lesson, Instructor, Classroom, OptimizationRun, Schedule, ClassroomAvailability
 from datetime import datetime, timedelta
 
 # Logging configuration
@@ -1397,3 +1397,589 @@ class AdvancedScheduleOptimizer:
                     break # Move to the next local search iteration
         
         return improved
+    
+    def optimize_multi_department_schedule(self, department_ids: List[int], semester: int, 
+                                        session_id: str, progress_callback=None,
+                                        shared_lessons=None, use_building_preference=False) -> OptimizationRun:
+        """Multi-department optimization with shared lessons support"""
+        
+        start_time = time.time()
+        shared_lessons = shared_lessons or []
+        
+        logger.info(f"Starting multi-department optimization for {len(department_ids)} departments")
+        
+        try:
+            # Load data from all departments
+            all_lessons = []
+            all_instructors = []
+            department_info = {}
+            
+            for dept_id in department_ids:
+                dept = Department.query.get(dept_id)
+                dept_lessons = self._get_lessons(dept_id, semester)
+                dept_instructors = self._get_instructors(dept_id)
+                
+                all_lessons.extend(dept_lessons)
+                all_instructors.extend(dept_instructors)
+                
+                department_info[dept_id] = {
+                    'department': dept,
+                    'lessons': dept_lessons,
+                    'instructors': dept_instructors
+                }
+            
+            # Get classrooms (with building preference if enabled)
+            classrooms = self._get_multi_department_classrooms(department_ids, use_building_preference)
+            
+            if not all_lessons:
+                raise ValueError("No lessons found for the specified departments and semester")
+            
+            # Process shared lessons
+            lesson_mapping = self._process_shared_lessons(shared_lessons, all_lessons)
+            
+            logger.info(f"Multi-dept optimization: {len(all_lessons)} lessons, {len(all_instructors)} instructors, {len(classrooms)} classrooms")
+            logger.info(f"Shared lessons: {len(shared_lessons)}")
+            
+            # Create optimization run record (YENİ DATABASE MODEL FIELDS kullanılıyor)
+            opt_run = OptimizationRun(
+                session_id=session_id,
+                faculty_id=department_info[department_ids[0]]['department'].faculty_id if len(set([department_info[d]['department'].faculty_id for d in department_ids])) == 1 else None,
+                department_ids=department_ids,  # YENİ FIELD
+                semester=semester,
+                academic_year=self._get_current_academic_year(),
+                use_building_preference=use_building_preference,  # YENİ FIELD
+                parameters={
+                    'department_count': len(department_ids),
+                    'lesson_count': len(all_lessons),
+                    'instructor_count': len(all_instructors),
+                    'classroom_count': len(classrooms),
+                    'shared_lessons': len(shared_lessons),
+                    'config': self.config.__dict__
+                },
+                status='running',
+                created_by='System'
+            )
+            db.session.add(opt_run)
+            db.session.commit()
+            
+            # Run enhanced genetic algorithm with multi-department support
+            best_schedule, best_fitness, generation_data = self._enhanced_genetic_algorithm_multi_dept(
+                all_lessons, all_instructors, classrooms, department_info, 
+                lesson_mapping, use_building_preference, opt_run, progress_callback
+            )
+            
+            # Comprehensive evaluation
+            evaluation = self._comprehensive_evaluation_multi_dept(
+                best_schedule, all_lessons, all_instructors, classrooms, department_info
+            )
+            
+            # Save results
+            runtime = time.time() - start_time
+            
+            opt_run.status = 'completed'
+            opt_run.fitness_score = best_fitness
+            opt_run.conflicts_count = evaluation['conflicts']
+            opt_run.room_utilization = evaluation['room_utilization']
+            opt_run.instructor_balance = evaluation['instructor_balance']
+            opt_run.student_satisfaction = evaluation['student_satisfaction']
+            opt_run.runtime_seconds = runtime
+            opt_run.completed_at = datetime.utcnow()
+            opt_run.results = {
+                'evaluation': evaluation,
+                'generation_stats': generation_data[-10:],
+                'optimization_summary': self._create_optimization_summary(evaluation),
+                'shared_lessons_summary': self._create_shared_lessons_summary(shared_lessons, best_schedule),
+                'department_breakdown': self._create_department_breakdown(best_schedule, department_info)
+            }
+            
+            # Save multi-department schedule to database
+            self._save_multi_department_schedule_to_db(opt_run, best_schedule, lesson_mapping)
+            
+            db.session.commit()
+            logger.info(f"Multi-department optimization completed in {runtime:.2f}s with fitness {best_fitness:.2f}")
+            return opt_run
+            
+        except Exception as e:
+            logger.error(f"Multi-department optimization failed: {str(e)}")
+            opt_run.status = 'error'
+            opt_run.results = {'error': str(e)}
+            db.session.commit()
+            raise e
+
+    # 4. YENİ HELPER FUNCTIONS EKLE
+
+    def _get_multi_department_classrooms(self, department_ids: List[int], use_building_preference=False) -> List[Classroom]:
+        """Get classrooms with building preference support"""
+        all_classrooms = Classroom.query.filter_by(is_active=True, is_bookable=True).all()
+        
+        if not use_building_preference:
+            return all_classrooms
+        
+        # Get faculty buildings from departments
+        faculty_buildings = set()
+        for dept_id in department_ids:
+            dept = Department.query.get(dept_id)
+            if dept and dept.faculty_ref and dept.faculty_ref.building:
+                faculty_buildings.add(dept.faculty_ref.building)
+            if dept and dept.building:
+                faculty_buildings.add(dept.building)
+        
+        if not faculty_buildings:
+            return all_classrooms
+        
+        # Prioritize classrooms in faculty buildings
+        priority_classrooms = []
+        other_classrooms = []
+        
+        for classroom in all_classrooms:
+            if classroom.building and classroom.building in faculty_buildings:
+                priority_classrooms.append(classroom)
+            else:
+                other_classrooms.append(classroom)
+        
+        return priority_classrooms + other_classrooms
+
+    def _process_shared_lessons(self, shared_lessons: List[Dict], all_lessons: List[Lesson]) -> Dict:
+        """Process shared lessons and create mapping"""
+        lesson_mapping = {}
+        
+        for shared_info in shared_lessons:
+            main_lesson = shared_info['main_lesson']
+            all_shared_lessons = shared_info['all_lessons']
+            
+            # Map all lessons to the main one
+            for lesson in all_shared_lessons:
+                lesson_mapping[lesson.id] = {
+                    'main_lesson_id': main_lesson.id,
+                    'is_shared': True,
+                    'departments': shared_info['departments'],
+                    'total_capacity': shared_info['total_capacity']
+                }
+        
+        # Map non-shared lessons to themselves
+        shared_lesson_ids = set(lesson_mapping.keys())
+        for lesson in all_lessons:
+            if lesson.id not in shared_lesson_ids:
+                lesson_mapping[lesson.id] = {
+                    'main_lesson_id': lesson.id,
+                    'is_shared': False,
+                    'departments': [lesson.department_id],
+                    'total_capacity': lesson.student_capacity
+                }
+        
+        return lesson_mapping
+
+    # 5. MULTI-DEPARTMENT GENETIC ALGORITHM EKLE
+
+    def _enhanced_genetic_algorithm_multi_dept(self, lessons, instructors, classrooms, 
+                                            department_info, lesson_mapping, 
+                                            use_building_preference, opt_run, progress_callback):
+        """Enhanced genetic algorithm for multi-department optimization"""
+        
+        # Initialize population with multi-department awareness
+        population = self._create_diverse_population_multi_dept(
+            lessons, instructors, classrooms, department_info, lesson_mapping
+        )
+        
+        best_schedule = None
+        best_fitness = float('-inf')
+        stagnation_counter = 0
+        generation_data = []
+        
+        for generation in range(self.config.generations):
+            # Evaluate population with multi-department fitness
+            fitness_scores = []
+            for individual in population:
+                fitness = self._enhanced_fitness_function_multi_dept(
+                    individual, lessons, instructors, classrooms, 
+                    department_info, lesson_mapping, use_building_preference
+                )
+                fitness_scores.append(fitness)
+            
+            # Update best solution
+            gen_best_idx = np.argmax(fitness_scores)
+            gen_best_fitness = fitness_scores[gen_best_idx]
+            
+            if gen_best_fitness > best_fitness:
+                best_fitness = gen_best_fitness
+                best_schedule = deepcopy(population[gen_best_idx])
+                stagnation_counter = 0
+            else:
+                stagnation_counter += 1
+            
+            # Calculate diversity
+            diversity = self._calculate_population_diversity(population)
+            
+            # Store generation statistics
+            gen_stats = {
+                'generation': generation,
+                'best_fitness': gen_best_fitness,
+                'avg_fitness': np.mean(fitness_scores),
+                'diversity': diversity,
+                'conflicts': self._count_multi_dept_conflicts(population[gen_best_idx], lesson_mapping),
+                'stagnation': stagnation_counter
+            }
+            generation_data.append(gen_stats)
+            
+            # Update database progress
+            opt_run.progress = {
+                'generation': generation,
+                'total_generations': self.config.generations,
+                'best_fitness': gen_best_fitness,
+                'conflicts': gen_stats['conflicts'],
+                'diversity': diversity
+            }
+            db.session.commit()
+            
+            if progress_callback:
+                progress_callback(gen_stats)
+            
+            # Adaptive parameter adjustment
+            if self.config.adaptive_mutation:
+                self._adjust_parameters(diversity, stagnation_counter)
+            
+            # Early termination conditions
+            if gen_stats['conflicts'] == 0 and gen_best_fitness > 950:
+                logger.info(f"Early termination at generation {generation} - optimal solution found")
+                break
+            
+            if stagnation_counter >= self.config.stagnation_limit:
+                logger.info(f"Early termination at generation {generation} due to stagnation")
+                break
+            
+            # Create next generation
+            population = self._create_next_generation_multi_dept(
+                population, fitness_scores, lessons, instructors, classrooms, 
+                department_info, lesson_mapping
+            )
+            
+            # Apply local search to promising individuals
+            if random.random() < self.config.local_search_probability:
+                population = self._apply_local_search_multi_dept(
+                    population, lessons, instructors, classrooms, lesson_mapping
+                )
+
+            # Cool down the temperature for simulated annealing
+            self.current_temperature *= self.config.cooling_rate
+        
+        return best_schedule, best_fitness, generation_data
+
+    # 6. MULTI-DEPARTMENT POPULATION CREATION EKLE
+
+    def _create_diverse_population_multi_dept(self, lessons, instructors, classrooms, 
+                                            department_info, lesson_mapping):
+        """Create diverse initial population for multi-department optimization"""
+        population = []
+        
+        for i in range(self.config.population_size):
+            if i < self.config.population_size * 0.2:
+                # Department-aware scheduling strategy
+                schedule = self._create_department_aware_schedule(
+                    lessons, instructors, classrooms, department_info, lesson_mapping
+                )
+            elif i < self.config.population_size * 0.4:
+                # Shared lessons priority strategy
+                schedule = self._create_shared_lessons_priority_schedule(
+                    lessons, instructors, classrooms, lesson_mapping
+                )
+            elif i < self.config.population_size * 0.6:
+                # Graph coloring with multi-department awareness
+                schedule = self._create_graph_coloring_schedule_multi_dept(
+                    lessons, instructors, classrooms, lesson_mapping
+                )
+            elif i < self.config.population_size * 0.8:
+                # Priority-based with multi-department
+                schedule = self._create_priority_based_schedule_multi_dept(
+                    lessons, instructors, classrooms, lesson_mapping
+                )
+            else:
+                # Random with multi-department awareness
+                schedule = self._create_random_schedule_multi_dept(
+                    lessons, instructors, classrooms, lesson_mapping
+                )
+            
+            population.append(schedule)
+        
+        return population
+
+    def _create_department_aware_schedule(self, lessons, instructors, classrooms, 
+                                        department_info, lesson_mapping):
+        """Create schedule considering department boundaries"""
+        schedule = {}
+        
+        # Schedule each department separately
+        for dept_id, info in department_info.items():
+            dept_lessons = info['lessons']
+            dept_instructors = info['instructors']
+            
+            for lesson in dept_lessons:
+                # Skip if already scheduled as shared lesson
+                mapping = lesson_mapping[lesson.id]
+                if mapping['is_shared'] and mapping['main_lesson_id'] != lesson.id:
+                    continue
+                
+                placement = self._find_best_placement_multi_dept(
+                    lesson, schedule, dept_instructors, classrooms, lesson_mapping
+                )
+                if placement:
+                    schedule[lesson.id] = placement
+        
+        return schedule
+
+    def _create_shared_lessons_priority_schedule(self, lessons, instructors, classrooms, lesson_mapping):
+        """Create schedule prioritizing shared lessons first"""
+        schedule = {}
+        
+        # Separate shared and individual lessons
+        shared_lessons = []
+        individual_lessons = []
+        
+        for lesson in lessons:
+            mapping = lesson_mapping[lesson.id]
+            if mapping['is_shared'] and mapping['main_lesson_id'] == lesson.id:
+                shared_lessons.append(lesson)
+            elif not mapping['is_shared']:
+                individual_lessons.append(lesson)
+        
+        # Schedule shared lessons first (higher priority)
+        for lesson in shared_lessons:
+            placement = self._find_best_placement_multi_dept(
+                lesson, schedule, instructors, classrooms, lesson_mapping
+            )
+            if placement:
+                schedule[lesson.id] = placement
+        
+        # Then schedule individual lessons
+        for lesson in individual_lessons:
+            placement = self._find_best_placement_multi_dept(
+                lesson, schedule, instructors, classrooms, lesson_mapping
+            )
+            if placement:
+                schedule[lesson.id] = placement
+        
+        return schedule
+
+    # 7. MULTI-DEPARTMENT FITNESS FUNCTION EKLE
+
+    def _enhanced_fitness_function_multi_dept(self, schedule, lessons, instructors, 
+                                            classrooms, department_info, lesson_mapping, 
+                                            use_building_preference):
+        """Enhanced fitness function for multi-department optimization"""
+        if not schedule:
+            return 0
+        
+        # Base fitness calculation (mevcut _enhanced_fitness_function'ı kullan)
+        fitness = self._enhanced_fitness_function(schedule, lessons, instructors, classrooms)
+        
+        # Multi-department specific bonuses/penalties
+        
+        # Department balance bonus
+        dept_balance = self._calculate_department_balance(schedule, department_info)
+        fitness += dept_balance * 5.0
+        
+        # Shared lessons efficiency bonus
+        shared_efficiency = self._calculate_shared_lessons_efficiency(schedule, lesson_mapping)
+        fitness += shared_efficiency * 8.0
+        
+        # Building preference bonus (if enabled)
+        if use_building_preference:
+            building_bonus = self._calculate_building_preference_bonus(schedule, department_info)
+            fitness += building_bonus * 6.0
+        
+        # Cross-department instructor utilization penalty
+        cross_dept_penalty = self._calculate_cross_department_penalty(schedule, department_info)
+        fitness -= cross_dept_penalty * 3.0
+        
+        return max(0, fitness)
+
+    # 8. MULTI-DEPARTMENT CONFLICT DETECTION EKLE
+
+    def _count_multi_dept_conflicts(self, schedule, lesson_mapping):
+        """Count conflicts with multi-department awareness"""
+        conflicts = 0
+        time_slots_used = {}
+        
+        for lesson_id, placement in schedule.items():
+            if placement.get('forced'):
+                conflicts += 5
+                continue
+            
+            lesson = placement['lesson']
+            instructor = placement['instructor']
+            classroom = placement['classroom']
+            day = placement['day']
+            start_hour = placement['start_hour']
+            duration = placement['duration']
+            
+            # Check for time slot conflicts
+            for hour_offset in range(duration):
+                current_hour = start_hour + hour_offset
+                time_key = (day, current_hour)
+                
+                if time_key not in time_slots_used:
+                    time_slots_used[time_key] = {
+                        'instructors': set(),
+                        'classrooms': set(),
+                        'lessons': []
+                    }
+                
+                # Instructor conflicts
+                if instructor.id in time_slots_used[time_key]['instructors']:
+                    conflicts += 10  # High penalty for instructor conflicts
+                time_slots_used[time_key]['instructors'].add(instructor.id)
+                
+                # Classroom conflicts (but allow shared lessons in same classroom)
+                mapping = lesson_mapping.get(lesson_id, {})
+                if mapping.get('is_shared'):
+                    # Shared lessons can use the same classroom
+                    shared_in_same_slot = any(
+                        lesson_mapping.get(other_lesson.id, {}).get('main_lesson_id') == mapping.get('main_lesson_id')
+                        for other_lesson in time_slots_used[time_key]['lessons']
+                    )
+                    if not shared_in_same_slot and classroom.id in time_slots_used[time_key]['classrooms']:
+                        conflicts += 8
+                else:
+                    if classroom.id in time_slots_used[time_key]['classrooms']:
+                        conflicts += 8
+                
+                time_slots_used[time_key]['classrooms'].add(classroom.id)
+                time_slots_used[time_key]['lessons'].append(lesson)
+                
+                # Capacity conflicts (with shared lesson consideration)
+                total_capacity_needed = mapping.get('total_capacity', lesson.student_capacity)
+                if total_capacity_needed > classroom.capacity:
+                    conflicts += 15
+        
+        return conflicts
+
+    # 9. DEPARTMENT BALANCE CALCULATION EKLE
+
+    def _calculate_department_balance(self, schedule, department_info):
+        """Calculate balance between departments"""
+        if not schedule:
+            return 0
+        
+        dept_hours = {}
+        total_hours = 0
+        
+        for lesson_id, placement in schedule.items():
+            lesson = placement['lesson']
+            dept_id = lesson.department_id
+            hours = placement['duration']
+            
+            if dept_id not in dept_hours:
+                dept_hours[dept_id] = 0
+            dept_hours[dept_id] += hours
+            total_hours += hours
+        
+        if total_hours == 0:
+            return 0
+        
+        # Calculate balance score (lower variance = better balance)
+        dept_count = len(department_info)
+        expected_hours_per_dept = total_hours / dept_count
+        
+        variance = 0
+        for dept_id in department_info.keys():
+            actual_hours = dept_hours.get(dept_id, 0)
+            variance += (actual_hours - expected_hours_per_dept) ** 2
+        
+        balance_score = max(0, 100 - (variance / dept_count))
+        return balance_score
+
+    # 10. SHARED LESSONS EFFICIENCY EKLE
+
+    def _calculate_shared_lessons_efficiency(self, schedule, lesson_mapping):
+        """Calculate efficiency of shared lesson scheduling"""
+        shared_lesson_count = 0
+        efficiently_scheduled = 0
+        
+        for lesson_id, placement in schedule.items():
+            mapping = lesson_mapping.get(lesson_id, {})
+            if mapping.get('is_shared') and mapping.get('main_lesson_id') == lesson_id:
+                shared_lesson_count += 1
+                
+                # Check if classroom capacity is efficiently used
+                classroom = placement['classroom']
+                if classroom.capacity >= mapping.get('total_capacity', 0) * 0.8:
+                    efficiently_scheduled += 1
+        
+        if shared_lesson_count == 0:
+            return 50  # Neutral score when no shared lessons
+        
+        efficiency_ratio = efficiently_scheduled / shared_lesson_count
+        return efficiency_ratio * 100
+
+    # 11. DIĞER YARDIMCI FONKSIYONLAR EKLE
+
+    def _calculate_building_preference_bonus(self, schedule, department_info):
+        """Calculate bonus for using preferred buildings"""
+        # Implementation here
+        return 0  # Placeholder
+
+    def _calculate_cross_department_penalty(self, schedule, department_info):
+        """Penalty for instructors teaching across multiple departments"""
+        # Implementation here
+        return 0  # Placeholder
+
+    def _find_best_placement_multi_dept(self, lesson, schedule, instructors, classrooms, lesson_mapping):
+        """Find best placement for a lesson in multi-department context"""
+        return self._find_best_placement(lesson, schedule, instructors, classrooms)
+
+    def _create_next_generation_multi_dept(self, population, fitness_scores, lessons, 
+                                        instructors, classrooms, department_info, lesson_mapping):
+        """Create next generation for multi-department optimization"""
+        return self._create_new_population(population, fitness_scores, lessons, instructors, classrooms)
+
+    def _apply_local_search_multi_dept(self, population, lessons, instructors, classrooms, lesson_mapping):
+        """Apply local search to improve promising individuals"""
+        return self._apply_local_search(population, lessons, instructors, classrooms)
+
+    def _comprehensive_evaluation_multi_dept(self, schedule, lessons, instructors, classrooms, department_info):
+        """Comprehensive evaluation for multi-department schedule"""
+        evaluation = self._comprehensive_evaluation(schedule, lessons, instructors, classrooms)
+        evaluation['department_balance'] = self._calculate_department_balance(schedule, department_info)
+        return evaluation
+
+    def _save_multi_department_schedule_to_db(self, opt_run, schedule, lesson_mapping):
+        """Save multi-department schedule to database"""
+        for lesson_id, placement in schedule.items():
+            lesson = placement['lesson']
+            instructor = placement['instructor']
+            classroom = placement['classroom']
+            mapping = lesson_mapping.get(lesson_id, {})
+            
+            schedule_entry = Schedule(
+                optimization_run_id=opt_run.id,
+                lesson_id=lesson.id,
+                instructor_id=instructor.id if instructor else None,
+                classroom_id=classroom.id if classroom else None,
+                day_of_week=placement['day'],
+                start_hour=placement['start_hour'],
+                duration=placement['duration'],
+                is_valid=not placement.get('forced', False),
+                is_shared_lesson=mapping.get('is_shared', False),
+                shared_lesson_departments=mapping.get('departments', []) if mapping.get('is_shared') else None
+            )
+            db.session.add(schedule_entry)
+
+    def _create_shared_lessons_summary(self, shared_lessons, schedule):
+        """Create summary of shared lessons scheduling"""
+        return {'shared_count': len(shared_lessons)}
+
+    def _create_department_breakdown(self, schedule, department_info):
+        """Create breakdown by department"""
+        return {dept_id: {'lessons_scheduled': 0} for dept_id in department_info.keys()}
+
+    # 12. PLACEHOLDER FUNCTIONS (Önceki versiyonlarla uyumluluk için)
+    def _create_graph_coloring_schedule_multi_dept(self, lessons, instructors, classrooms, lesson_mapping):
+        """Graph coloring with multi-department awareness"""
+        return self._create_graph_coloring_schedule(lessons, instructors, classrooms)
+
+    def _create_priority_based_schedule_multi_dept(self, lessons, instructors, classrooms, lesson_mapping):
+        """Priority-based scheduling with multi-department awareness"""
+        return self._create_priority_based_schedule(lessons, instructors, classrooms)
+
+    def _create_random_schedule_multi_dept(self, lessons, instructors, classrooms, lesson_mapping):
+        """Random scheduling with multi-department awareness"""
+        return self._create_random_schedule(lessons, instructors, classrooms)
